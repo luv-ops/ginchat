@@ -1,0 +1,11 @@
+mysql:
+  dsn: "root:your_password@tcp(127.0.0.1:3306)/go_chat?charset=utf8mb4&parseTime=True&loc=Local"
+jwt:
+  key: "4bZ5xQ9aR2sP7kD6nG8hF0gS1dF2gH4jK5lL6k"
+redis:
+  addr: "localhost:6379"
+  DB: 0
+  PoolSize: 20
+  MinIdleConns: 10
+file:
+  domain: "http://127.0.0.1:8080"

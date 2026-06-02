@@ -1,0 +1,644 @@
+definitions:
+  controller.EmptyData:
+    type: object
+  models.ConversationInfo:
+    properties:
+      avatar:
+        type: string
+      id:
+        type: integer
+      lastMsg:
+        type: string
+      lastTime:
+        type: string
+      name:
+        type: string
+      peerId:
+        description: 对方ID
+        type: integer
+      type:
+        description: 0单聊 1群聊
+        type: integer
+      unreadCount:
+        type: integer
+      userId:
+        description: 当前用户
+        type: integer
+    type: object
+  models.CreateGroupReq:
+    properties:
+      group_name:
+        type: string
+    type: object
+  models.FriendApplyResp:
+    properties:
+      avatar:
+        description: 申请人头像
+        type: string
+      create_at:
+        type: string
+      fromId:
+        type: integer
+      msg:
+        description: 申请附言
+        type: string
+      name:
+        description: 申请人昵称
+        type: string
+      status:
+        type: integer
+      targetId:
+        type: integer
+      type:
+        type: string
+    type: object
+  models.FriendReq:
+    properties:
+      createAt:
+        type: string
+      fromId:
+        type: integer
+      id:
+        type: integer
+      status:
+        description: 0:申请中 1:已同意 2:已拒绝 3:已读不处理
+        type: integer
+      targetId:
+        type: integer
+    type: object
+  models.FriendResp:
+    properties:
+      avatar:
+        description: 申请人头像
+        type: string
+      id:
+        type: integer
+      isOnline:
+        type: integer
+      name:
+        description: 申请人昵称
+        type: string
+    type: object
+  models.GroupDetailVO:
+    properties:
+      avatar:
+        type: string
+      group_id:
+        type: integer
+      group_name:
+        type: string
+      members:
+        description: 成员列表
+        items:
+          $ref: '#/definitions/models.GroupMemberVO'
+        type: array
+      notice:
+        type: string
+      totalCount:
+        type: integer
+    type: object
+  models.GroupMemberVO:
+    properties:
+      avatar:
+        type: string
+      name:
+        type: string
+      role:
+        description: 2群主 1管理员 0普通成员
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  models.InviteReq:
+    properties:
+      group_id:
+        type: integer
+      invited_id:
+        items:
+          type: integer
+        type: array
+    type: object
+  models.LoginReq:
+    properties:
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+  models.Message:
+    properties:
+      content:
+        type: string
+      createAt:
+        type: string
+      fromId:
+        type: integer
+      id:
+        type: integer
+      media:
+        description: 图片，文本，音频
+        type: integer
+      msgType:
+        description: 0 文本 1 图片  (后续可以扩展为2 音频)
+        type: integer
+      targetId:
+        type: integer
+      type:
+        description: 单聊，群聊 chat ,groupMessage,friendRequest
+        type: string
+    type: object
+  models.RegisterReq:
+    properties:
+      confirmPassword:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+  models.UpdateReq:
+    properties:
+      avatar:
+        type: string
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+    type: object
+  models.UserRes:
+    properties:
+      avatar:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      token:
+        type: string
+    type: object
+  utils.Response:
+    properties:
+      code:
+        type: integer
+      data: {}
+      message:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /conversation/list:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.ConversationInfo'
+                  type: array
+              type: object
+      summary: 获取会话列表
+      tags:
+      - 会话模块
+  /conversation/unreadClear/{peerId}:
+    post:
+      parameters:
+      - description: 对方用户ID
+        in: path
+        name: peerId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.Response'
+      summary: 清楚当前会话的未读计数
+      tags:
+      - 会话模块
+  /friend/accept/{friendId}:
+    post:
+      parameters:
+      - description: 好友ID
+        in: path
+        name: friendId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.Response'
+      summary: 同意好友申请
+      tags:
+      - 好友模块
+  /friend/add:
+    post:
+      parameters:
+      - description: 登录参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.FriendReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.Response'
+      summary: 添加好友
+      tags:
+      - 好友模块
+  /friend/list:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.FriendResp'
+              type: object
+      summary: 获取好友列表
+      tags:
+      - 好友模块
+  /friend/reject/{friendId}:
+    post:
+      parameters:
+      - description: 好友ID
+        in: path
+        name: friendId
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.Response'
+      summary: 拒绝好友申请
+      tags:
+      - 好友模块
+  /friend/requests:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.FriendApplyResp'
+                  type: array
+              type: object
+      summary: 获取好友请求列表
+      tags:
+      - 好友模块
+  /friend/requests/unread:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    format: int64
+                    type: integer
+                  type: object
+              type: object
+      summary: 获取好友请求未读计数
+      tags:
+      - 好友模块
+  /group/create:
+    post:
+      parameters:
+      - description: 创建群参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateGroupReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/controller.EmptyData'
+              type: object
+      summary: 创建群聊
+      tags:
+      - 群组模块
+  /group/detail/{groupId}:
+    get:
+      parameters:
+      - description: 群组ID
+        in: path
+        name: groupId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.GroupDetailVO'
+              type: object
+      summary: 获取群详情
+      tags:
+      - 群组模块
+  /group/invite:
+    post:
+      parameters:
+      - description: 邀请入群参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.InviteReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/controller.EmptyData'
+              type: object
+      summary: 邀请加入群
+      tags:
+      - 群组模块
+  /group/members/{groupId}:
+    get:
+      parameters:
+      - description: 群组ID
+        in: path
+        name: groupId
+        required: true
+        type: integer
+      - in: query
+        name: page
+        type: integer
+      - in: query
+        name: pageSize
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.GroupMemberVO'
+              type: object
+      summary: 获取群详情
+      tags:
+      - 群组模块
+  /message/list:
+    get:
+      parameters:
+      - description: 对方用户ID
+        in: query
+        name: peerId
+        required: true
+        type: integer
+      - description: 页码，默认1
+        in: query
+        name: page
+        type: integer
+      - description: 每页条数，默认20
+        in: query
+        name: size
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.Message'
+                  type: array
+              type: object
+      summary: 获取消息历史记录
+      tags:
+      - 消息模块
+  /upload/img:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传聊天图片，返回可访问URL
+      parameters:
+      - description: 图片文件(jpg/png/gif)
+        in: formData
+        name: img
+        required: true
+        type: file
+      responses:
+        "200":
+          description: 上传成功
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "400":
+          description: 参数错误/文件非法
+          schema:
+            $ref: '#/definitions/utils.Response'
+        "500":
+          description: 服务器错误
+          schema:
+            $ref: '#/definitions/utils.Response'
+      summary: 图片文件上传
+      tags:
+      - 文件相关
+  /upload/send:
+    post:
+      parameters:
+      - description: 聊天参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.Message'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/controller.EmptyData'
+              type: object
+      summary: 发送消息
+      tags:
+      - 聊天模块
+  /user/delete:
+    post:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/controller.EmptyData'
+              type: object
+      summary: 删除用户
+      tags:
+      - 用户模块
+  /user/info:
+    get:
+      parameters:
+      - description: 用户ID
+        in: query
+        name: userId
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.UserRes'
+                  type: array
+              type: object
+      summary: 获取用户信息
+      tags:
+      - 用户模块
+  /user/list:
+    get:
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.UserRes'
+                  type: array
+              type: object
+      summary: 获取用户列表
+      tags:
+      - 用户模块
+  /user/login:
+    post:
+      parameters:
+      - description: 登录参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.UserRes'
+              type: object
+      summary: 登录
+      tags:
+      - 用户模块
+  /user/register:
+    post:
+      parameters:
+      - description: 登录参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.RegisterReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/controller.EmptyData'
+              type: object
+      summary: 注册
+      tags:
+      - 用户模块
+  /user/update:
+    post:
+      parameters:
+      - description: 修改参数
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateReq'
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/controller.EmptyData'
+              type: object
+      summary: 修改用户消息
+      tags:
+      - 用户模块
+  /ws/{token}:
+    get:
+      consumes:
+      - application/json
+      description: 建立 WebSocket 长连接，用于实时聊天
+      parameters:
+      - description: 用户认证token
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "101":
+          description: WebSocket 连接成功
+          schema:
+            type: string
+        "400":
+          description: 连接失败
+          schema:
+            type: string
+      summary: WebSocket 连接websocket接口
+      tags:
+      - 聊天模块
+swagger: "2.0"
