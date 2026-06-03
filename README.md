@@ -1,6 +1,7 @@
 # GinChat 即时通讯系统（Go后端）
 基于 Go + Gin + WebSocket + MySQL + Redis 实现的高性能 IM 后端，支持高并发消息推送、在线状态管理、多级缓存优化与容器化部署。
-
+### 联系我
+qq邮箱:3110940369@qq.com
 ## 技术栈
 - Golang、Gin、GORM
 - MySQL、Redis
