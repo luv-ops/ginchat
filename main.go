@@ -1,14 +1,16 @@
 package main
 
 import (
+	"GinChat/Mysql"
+	"GinChat/config"
+	"GinChat/redis"
 	"GinChat/router"
-	"GinChat/utils"
 )
 
 func main() {
-	utils.InitConfig()
-	utils.InitMySql()
-	utils.InitRedis()
+	config.InitConfig()
+	Mysql.InitMySql()
+	redis.InitRedis()
 	r := router.Router()
 	r.Static("/static", "./static")
 	r.Run(":8080")

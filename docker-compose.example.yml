@@ -22,7 +22,7 @@ services:
       redis:
         condition: service_started
     environment:
-      - MYSQL_DSN=root:your_password@tcp(mysql:3306)/go_chat?charset=utf8mb4&parseTime=True&loc=Local
+      - MYSQL_DSN=root:your_password@tcp(Mysql:3306)/go_chat?charset=utf8mb4&parseTime=True&loc=Local
       - REDIS_ADDR=redis:6379
     volumes:
       - ./static/upload:/root/static/upload
@@ -37,8 +37,8 @@ services:
       MYSQL_DATABASE: go_chat
 
     volumes:
-      - mysql-data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - Mysql-data:/var/lib/Mysql
+      - ./init.Mysql:/docker-entrypoint-initdb.d/init.Mysql
     networks:
       - ginchat-network
     restart: unless-stopped

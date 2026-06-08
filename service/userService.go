@@ -1,6 +1,7 @@
 package service
 
 import (
+	"GinChat/Mysql"
 	"GinChat/models"
 	"GinChat/utils"
 	"errors"
@@ -11,7 +12,7 @@ import (
 
 func GetUserList() (*[]models.UserBasic, error) {
 	var data []models.UserBasic
-	err := utils.DB.Find(&data).Error
+	err := Mysql.DB.Find(&data).Error
 	if err != nil {
 		return nil, err
 	}
@@ -21,7 +22,7 @@ func GetUserList() (*[]models.UserBasic, error) {
 func Register(body *models.RegisterReq) error {
 
 	var count int64
-	err := utils.DB.Model(&models.UserBasic{}).Where("name=?", body.Name).Count(&count).Error
+	err := Mysql.DB.Model(&models.UserBasic{}).Where("name=?", body.Name).Count(&count).Error
 	fmt.Println("count", count)
 	//为了用户体验
 	if count > 0 {
@@ -30,7 +31,7 @@ func Register(body *models.RegisterReq) error {
 	//密码加密
 	encode, slat := utils.Md5Encode(body.Password)
 	user := models.UserBasic{Name: body.Name, Password: encode, Salt: slat}
-	err = utils.DB.Create(&user).Error
+	err = Mysql.DB.Create(&user).Error
 	//应对高并发
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return errors.New("用户已经存在")
@@ -45,7 +46,7 @@ func Login(body *models.LoginReq) (*models.UserBasic, error) {
 
 	user := models.UserBasic{}
 	//根据名字查用户
-	err := utils.DB.Take(&user, "name=?", body.Name).Error
+	err := Mysql.DB.Take(&user, "name=?", body.Name).Error
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +59,7 @@ func Login(body *models.LoginReq) (*models.UserBasic, error) {
 	return &user, nil
 }
 func DeleteUser(id uint) error {
-	err := utils.DB.Delete(&models.UserBasic{}, id).Error
+	err := Mysql.DB.Delete(&models.UserBasic{}, id).Error
 	if err != nil {
 		return err
 	}
@@ -66,7 +67,7 @@ func DeleteUser(id uint) error {
 }
 
 func UpdateUser(body *models.UpdateReq, id uint) error {
-	err := utils.DB.Model(&models.UserBasic{ID: id}).UpdateColumns(body).Error
+	err := Mysql.DB.Model(&models.UserBasic{ID: id}).UpdateColumns(body).Error
 	if err != nil {
 		return err
 	}
@@ -75,7 +76,7 @@ func UpdateUser(body *models.UpdateReq, id uint) error {
 
 func UserInfo(userId uint) (models.UserBasic, error) {
 	user := models.UserBasic{}
-	err := utils.DB.Take(&user, userId).Error
+	err := Mysql.DB.Take(&user, userId).Error
 	if err != nil {
 		return user, err
 	}

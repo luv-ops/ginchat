@@ -1,13 +1,13 @@
 package service
 
 import (
+	"GinChat/Mysql"
 	"GinChat/models"
-	"GinChat/utils"
 )
 
 func ConversationList(userId uint) ([]models.ConversationInfo, error) {
 	list := []models.ConversationInfo{}
-	err := utils.DB.Table("conversations cv").
+	err := Mysql.DB.Table("conversations cv").
 		Where("cv.user_id = ?", userId).
 		Select(
 			"cv.id, cv.user_id, cv.peer_id, cv.last_time, cv.last_msg, cv.unread_count, cv.type",
@@ -25,7 +25,7 @@ func ConversationList(userId uint) ([]models.ConversationInfo, error) {
 }
 
 func ClearUnreadCount(userId uint, peerId uint64) error {
-	err := utils.DB.Model(&models.Conversation{}).Where("user_id = ? and peer_id = ?", userId, peerId).
+	err := Mysql.DB.Model(&models.Conversation{}).Where("user_id = ? and peer_id = ?", userId, peerId).
 		UpdateColumn("unread_count", 0).Error
 	if err != nil {
 		return err

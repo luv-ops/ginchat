@@ -1,5 +1,4 @@
 config/application.yaml
-frontend/
 static/
 test/
 init.sql

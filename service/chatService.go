@@ -1,8 +1,8 @@
 package service
 
 import (
+	"GinChat/Mysql"
 	"GinChat/models"
-	"GinChat/utils"
 	"errors"
 	"fmt"
 
@@ -10,7 +10,7 @@ import (
 )
 
 func Send(message *models.Message) error {
-	err := utils.DB.Create(message).Error
+	err := Mysql.DB.Create(message).Error
 	if err != nil {
 		return err
 	}
@@ -21,7 +21,7 @@ func Send(message *models.Message) error {
 	}
 	//查询fromId的用户名和头像
 	user := models.UserBasic{}
-	err = utils.DB.Model(&user).Select("name,avatar").Where("id = ?", message.FromId).Take(&user).Error
+	err = Mysql.DB.Model(&user).Select("name,avatar").Where("id = ?", message.FromId).Take(&user).Error
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func Send(message *models.Message) error {
 func updateConversation(message *models.Message) error {
 	fmt.Printf("%+v", message)
 
-	err := utils.DB.Transaction(func(tx *gorm.DB) error {
+	err := Mysql.DB.Transaction(func(tx *gorm.DB) error {
 		//尝试更新，如果RowsAffected == 0则会话不存在则创建
 		//自己发的消息，UpdateColumn不走钩子，性能比update高  同UpdateColumns比updates
 		//更新我们的

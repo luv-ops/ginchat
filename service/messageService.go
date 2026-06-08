@@ -1,13 +1,13 @@
 package service
 
 import (
+	"GinChat/Mysql"
 	"GinChat/models"
-	"GinChat/utils"
 )
 
 func GetMessage(userId uint, messageReq *models.MessageReq) ([]models.MessageVO, error) {
 	list := []models.MessageVO{}
-	db := utils.DB.Model(&models.Message{})
+	db := Mysql.DB.Model(&models.Message{})
 	// 单聊历史记录
 	if messageReq.Type == "chat" {
 		db = db.Where("(from_id = ? AND target_id = ? AND type = ?) OR (from_id = ? AND target_id = ? AND type = ?)",

@@ -1,8 +1,9 @@
 package service
 
 import (
+	"GinChat/Mysql"
 	"GinChat/models"
-	"GinChat/utils"
+	"GinChat/redis"
 	"fmt"
 	"strconv"
 
@@ -15,7 +16,7 @@ func CreateGroup(userId uint, groupReq *models.CreateGroupReq) error {
 		OwnerID:    userId,
 		TotalCount: 1,
 	}
-	err := utils.DB.Transaction(func(tx *gorm.DB) error {
+	err := Mysql.DB.Transaction(func(tx *gorm.DB) error {
 		//创建群聊
 		err := tx.Create(&group).Error
 		if err != nil {
@@ -51,7 +52,7 @@ func CreateGroup(userId uint, groupReq *models.CreateGroupReq) error {
 }
 
 func InviteGroup(inviteReq *models.InviteReq) error {
-	err := utils.DB.Transaction(func(tx *gorm.DB) error {
+	err := Mysql.DB.Transaction(func(tx *gorm.DB) error {
 		members := []models.GroupMember{}
 		for _, id := range inviteReq.InvitedId {
 			members = append(members, models.GroupMember{
@@ -88,12 +89,12 @@ func InviteGroup(inviteReq *models.InviteReq) error {
 		return err
 	}
 	//邀请加群成功后，缓存删除
-	key := utils.KeyGroupMemberId + strconv.Itoa(int(inviteReq.GroupId))
+	key := redis.KeyGroupMemberId + strconv.Itoa(int(inviteReq.GroupId))
 	go func() {
 		if e := recover(); e != nil {
 			fmt.Println("邀请入群redisPanic", e)
 		}
-		_, err2 := utils.Rdb.Del(utils.Ctx, key).Result()
+		_, err2 := redis.Rdb.Del(redis.Ctx, key).Result()
 		if err2 != nil {
 			fmt.Println("删除群id缓存失败", err2.Error())
 		}
@@ -104,13 +105,13 @@ func InviteGroup(inviteReq *models.InviteReq) error {
 func GroupDetail(groupId uint64) (models.GroupDetailVO, error) {
 	var detail models.GroupDetailVO
 	group := models.GroupModel{}
-	err := utils.DB.Model(&models.GroupModel{}).Where("id=?", groupId).Take(&group).Error
+	err := Mysql.DB.Model(&models.GroupModel{}).Where("id=?", groupId).Take(&group).Error
 	if err != nil {
 		return detail, err
 	}
 	members := []models.GroupMemberVO{}
 	//只查8个人
-	err = utils.DB.Table("group_members gm").Where("gm.group_id=?", groupId).
+	err = Mysql.DB.Table("group_members gm").Where("gm.group_id=?", groupId).
 		Joins("join user_basic u on gm.user_id=u.id").
 		Select("u.avatar,u.name,gm.role,gm.user_id as userId").Limit(8).
 		Order("gm.role desc").
@@ -131,7 +132,7 @@ func GroupDetail(groupId uint64) (models.GroupDetailVO, error) {
 
 func GroupMembers(groupId uint64, groupMemberReq *models.GroupMemberReq) ([]models.GroupMemberVO, error) {
 	var members []models.GroupMemberVO
-	err := utils.DB.Debug().Table("group_members gm").Where("gm.group_id=?", groupId).
+	err := Mysql.DB.Debug().Table("group_members gm").Where("gm.group_id=?", groupId).
 		Joins("join user_basic u on gm.user_id=u.id").
 		Select("u.avatar,u.name,gm.role,gm.user_id as userId").
 		Limit(groupMemberReq.PageSize).

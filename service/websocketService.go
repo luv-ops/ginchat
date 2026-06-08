@@ -1,8 +1,9 @@
 package service
 
 import (
+	"GinChat/Mysql"
 	"GinChat/models"
-	"GinChat/utils"
+	"GinChat/redis"
 	"fmt"
 	"sync"
 	"time"
@@ -28,7 +29,7 @@ func WsConnectionHandler(connect *websocket.Conn, userId uint) {
 	//加入map在线表
 	wsLock.Lock()
 	wsConnMap[userId] = connect
-	utils.SetUserOnline(userId, 1)
+	redis.SetUserOnline(userId, 1)
 	wsLock.Unlock()
 	fmt.Println("用户上线：", userId)
 	//清理资源,断开连接
@@ -36,7 +37,7 @@ func WsConnectionHandler(connect *websocket.Conn, userId uint) {
 		//删除用户连接
 		wsLock.Lock()
 		delete(wsConnMap, userId)
-		utils.SetUserOnline(userId, 0)
+		redis.SetUserOnline(userId, 0)
 		wsLock.Unlock()
 		connect.Close()
 	}()
@@ -71,7 +72,7 @@ func readLoop(connect *websocket.Conn, messageChan chan wsMessage, exitChan chan
 		json.Unmarshal(message, &msg)
 		switch msg.Type {
 		case "chat":
-			utils.DB.Create(&msg)
+			Mysql.DB.Create(&msg)
 		}
 		tempMessage := wsMessage{
 			Mt:      mt,
@@ -124,7 +125,7 @@ func SendWs(msg *models.Message) {
 	switch msg.Type {
 	case "friendRequest":
 		user := models.UserBasic{}
-		utils.DB.Take(&user, msg.FromId)
+		Mysql.DB.Take(&user, msg.FromId)
 
 		reqMsg := models.FriendApplyResp{
 			FromId:   msg.FromId,
@@ -151,19 +152,19 @@ func SendWs(msg *models.Message) {
 func SendWsGroup(msg *models.MessageVO) {
 	//先获取群成员所有id
 	var memberIds []uint
-	ids, err := utils.GetGroupMemberIds(msg.TargetId)
+	ids, err := redis.GetGroupMemberIds(msg.TargetId)
 
 	if err == nil && len(ids) > 0 {
 		memberIds = ids
 	} else {
-		err = utils.DB.Model(&models.GroupMember{}).Select("user_id").Where("group_id=?", msg.TargetId).
+		err = Mysql.DB.Model(&models.GroupMember{}).Select("user_id").Where("group_id=?", msg.TargetId).
 			Find(&memberIds).Error
 		if err != nil {
 			fmt.Println("获取群成员id失败", err.Error())
 			return
 		}
 		//缓存构建
-		utils.SetGroupMemberIds(msg.TargetId, memberIds)
+		redis.SetGroupMemberIds(msg.TargetId, memberIds)
 	}
 	//遍历所有成员
 	for _, id := range memberIds {
