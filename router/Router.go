@@ -11,8 +11,32 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-func Router() *gin.Engine {
-	r := gin.Default()
+type Router struct {
+	userController         controller.IUserController
+	chatController         controller.IChatController
+	friendController       controller.IFriendController
+	websocketController    controller.IWebsocketController
+	conversationController controller.IConversationController
+	messageController      controller.IMessageController
+	groupController        controller.IGroupController
+}
+
+func NewRouter(uC controller.IUserController, chatC controller.IChatController,
+	friendC controller.IFriendController, websocketC controller.IWebsocketController,
+	conversationC controller.IConversationController, messageC controller.IMessageController,
+	groupC controller.IGroupController) *Router {
+	return &Router{
+		userController:         uC,
+		chatController:         chatC,
+		friendController:       friendC,
+		websocketController:    websocketC,
+		conversationController: conversationC,
+		messageController:      messageC,
+		groupController:        groupC,
+	}
+}
+func (R *Router) Setup(r *gin.Engine) {
+
 	r.Use(middleware.Cors())
 	r.GET("", func(c *gin.Context) {
 		utils.Ok2(c, "成功部署")
@@ -26,17 +50,17 @@ func Router() *gin.Engine {
 		//不需要token
 		public := userGroup.Group("/")
 		{
-			public.POST("/register", controller.Register)
-			public.POST("/login", controller.Login)
+			public.POST("/register", R.userController.Register)
+			public.POST("/login", R.userController.Login)
 		}
 		//需要token
 		auth := userGroup.Group("/")
 		auth.Use(middleware.JwtAuth())
 		{
-			auth.GET("/list", controller.GetUserList)
-			auth.GET("/info", controller.UserInfo)
-			auth.POST("/delete", controller.DeleteUser)
-			auth.POST("/update", controller.UpdateUser)
+			auth.GET("/list", R.userController.GetUserList)
+			auth.GET("/info", R.userController.UserInfo)
+			auth.POST("/delete", R.userController.DeleteUser)
+			auth.POST("/update", R.userController.UpdateUser)
 
 		}
 	}
@@ -44,17 +68,17 @@ func Router() *gin.Engine {
 	friendGroup := r.Group("/friend")
 	{
 		friendGroup.Use(middleware.JwtAuth())
-		friendGroup.POST("/add", controller.AddFriend)
+		friendGroup.POST("/add", R.friendController.AddFriend)
 		requestGroup := friendGroup.Group("/requests")
 		{
-			requestGroup.GET("", controller.RequestList)
-			requestGroup.GET("/unread", controller.UnReadCount)
-			requestGroup.POST("/hasRead", controller.HasRead)
+			requestGroup.GET("", R.friendController.RequestList)
+			requestGroup.GET("/unread", R.friendController.UnReadCount)
+			requestGroup.POST("/hasRead", R.friendController.HasRead)
 		}
 
-		friendGroup.POST("/accept/:friendId", controller.Accept)
-		friendGroup.POST("/reject/:friendId", controller.Reject)
-		friendGroup.GET("/list", controller.GetFriendList)
+		friendGroup.POST("/accept/:friendId", R.friendController.Accept)
+		friendGroup.POST("/reject/:friendId", R.friendController.Reject)
+		friendGroup.GET("/list", R.friendController.GetFriendList)
 
 	}
 	//websocket模块
@@ -62,35 +86,35 @@ func Router() *gin.Engine {
 	wsGroup := r.Group("/ws")
 	{
 		wsGroup.Use(middleware.JwtAuth(true))
-		wsGroup.GET("/:token", controller.ConnectWs)
+		wsGroup.GET("/:token", R.websocketController.ConnectWs)
 	}
 	//聊天模块
 	chatGroup := r.Group("/chat")
 	{
 		chatGroup.Use(middleware.JwtAuth())
-		chatGroup.POST("/send", controller.Send)
+		chatGroup.POST("/send", R.chatController.Send)
 	}
 	//会话模块
 	conversationGroup := r.Group("/conversation")
 	{
 		conversationGroup.Use(middleware.JwtAuth())
-		conversationGroup.GET("/list", controller.ConversationList)
-		conversationGroup.POST("/unreadClear/:peerId", controller.ClearUnreadCount)
+		conversationGroup.GET("/list", R.conversationController.ConversationList)
+		conversationGroup.POST("/unreadClear/:peerId", R.conversationController.ClearUnreadCount)
 	}
 	//消息模块
 	messageGroup := r.Group("/message")
 	{
 		messageGroup.Use(middleware.JwtAuth())
-		messageGroup.GET("/list", controller.GetMessage)
+		messageGroup.GET("/list", R.messageController.GetMessage)
 	}
 	//群组模块
 	groupGroup := r.Group("/group")
 	{
 		groupGroup.Use(middleware.JwtAuth())
-		groupGroup.POST("/create", controller.CreateGroup)
-		groupGroup.POST("/invite", controller.InviteGroup)
-		groupGroup.GET("/detail/:groupId", controller.GroupDetail)
-		groupGroup.GET("/members/:groupId", controller.GroupMembers)
+		groupGroup.POST("/create", R.groupController.CreateGroup)
+		groupGroup.POST("/invite", R.groupController.InviteGroup)
+		groupGroup.GET("/detail/:groupId", R.groupController.GroupDetail)
+		groupGroup.GET("/members/:groupId", R.groupController.GroupMembers)
 	}
 	//上传模块
 	uploadGroup := r.Group("/upload")
@@ -98,5 +122,4 @@ func Router() *gin.Engine {
 		uploadGroup.Use(middleware.JwtAuth())
 		uploadGroup.POST("/file", controller.UploadFile)
 	}
-	return r
 }

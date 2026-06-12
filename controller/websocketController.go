@@ -10,6 +10,19 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type WebsocketController struct {
+	websocketService *service.WebsocketService
+}
+type IWebsocketController interface {
+	ConnectWs(c *gin.Context)
+}
+
+func NewWebsocketController(wS *service.WebsocketService) *WebsocketController {
+	return &WebsocketController{
+		websocketService: wS,
+	}
+}
+
 // 定义 Upgrader（只在这里定义）
 var upGrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -27,7 +40,7 @@ var upGrader = websocket.Upgrader{
 // @Success 101 {string} string "WebSocket 连接成功"
 // @Failure 400 {object} string "连接失败"
 // @Router /ws/{token} [get]
-func ConnectWs(c *gin.Context) {
+func (con *WebsocketController) ConnectWs(c *gin.Context) {
 	//鉴权
 	userId, ok := c.Get("userId")
 	if !ok {
@@ -42,6 +55,6 @@ func ConnectWs(c *gin.Context) {
 	}
 
 	//处理ws连接,加入/删除用户连接map
-	service.WsConnectionHandler(connect, userId.(uint))
+	con.websocketService.WsConnectionHandler(connect, userId.(uint))
 
 }

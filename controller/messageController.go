@@ -9,6 +9,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type MessageController struct {
+	messageService *service.MessageService
+}
+type IMessageController interface {
+	GetMessage(c *gin.Context)
+}
+
+func NewMessageController(mS *service.MessageService) *MessageController {
+	return &MessageController{
+		messageService: mS,
+	}
+}
+
 // GetMessage
 // @Tags 消息模块
 // @Summary 获取消息历史记录
@@ -17,7 +30,7 @@ import (
 // @Param size query int false "每页条数，默认20"
 // @Success 200 {object} utils.Response{data=[]models.Message}
 // @Router /message/list [get]
-func GetMessage(c *gin.Context) {
+func (con *MessageController) GetMessage(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
@@ -33,7 +46,7 @@ func GetMessage(c *gin.Context) {
 	if messageReq.Size == 0 {
 		messageReq.Size = 20
 	}
-	message, err := service.GetMessage(userId.(uint), &messageReq)
+	message, err := con.messageService.GetMessage(userId.(uint), &messageReq)
 	if err != nil {
 		utils.Fail(c, http.StatusInternalServerError, "获取消息失败")
 		return

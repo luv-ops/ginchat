@@ -1,29 +1,36 @@
 package service
 
 import (
-	"GinChat/Mysql"
+	"GinChat/mapper"
 	"GinChat/models"
 	"GinChat/utils"
 	"errors"
-	"fmt"
 
 	"gorm.io/gorm"
 )
 
-func GetUserList() (*[]models.UserBasic, error) {
+type UserService struct {
+	userMapper *mapper.UserMapper
+}
+
+func NewUserService(uM *mapper.UserMapper) *UserService {
+	return &UserService{
+		userMapper: uM,
+	}
+}
+func (s *UserService) GetUserList() (*[]models.UserBasic, error) {
 	var data []models.UserBasic
-	err := Mysql.DB.Find(&data).Error
+	err := s.userMapper.GetUserList(&data)
 	if err != nil {
 		return nil, err
 	}
 	return &data, nil
 }
 
-func Register(body *models.RegisterReq) error {
+func (s *UserService) Register(body *models.RegisterReq) error {
 
 	var count int64
-	err := Mysql.DB.Model(&models.UserBasic{}).Where("name=?", body.Name).Count(&count).Error
-	fmt.Println("count", count)
+	err := s.userMapper.UserExistByName(body.Name, &count)
 	//为了用户体验
 	if count > 0 {
 		return errors.New("用户已经存在")
@@ -31,7 +38,7 @@ func Register(body *models.RegisterReq) error {
 	//密码加密
 	encode, slat := utils.Md5Encode(body.Password)
 	user := models.UserBasic{Name: body.Name, Password: encode, Salt: slat}
-	err = Mysql.DB.Create(&user).Error
+	err = s.userMapper.CreateUser(&user)
 	//应对高并发
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return errors.New("用户已经存在")
@@ -42,11 +49,11 @@ func Register(body *models.RegisterReq) error {
 	return nil
 }
 
-func Login(body *models.LoginReq) (*models.UserBasic, error) {
+func (s *UserService) Login(body *models.LoginReq) (*models.UserBasic, error) {
 
 	user := models.UserBasic{}
 	//根据名字查用户
-	err := Mysql.DB.Take(&user, "name=?", body.Name).Error
+	err := s.userMapper.SelectByName(body.Name, &user)
 	if err != nil {
 		return nil, err
 	}
@@ -58,25 +65,18 @@ func Login(body *models.LoginReq) (*models.UserBasic, error) {
 	}
 	return &user, nil
 }
-func DeleteUser(id uint) error {
-	err := Mysql.DB.Delete(&models.UserBasic{}, id).Error
-	if err != nil {
-		return err
-	}
-	return nil
+func (s *UserService) DeleteUser(id uint) error {
+	return s.userMapper.DeleteById(id)
+
 }
 
-func UpdateUser(body *models.UpdateReq, id uint) error {
-	err := Mysql.DB.Model(&models.UserBasic{ID: id}).UpdateColumns(body).Error
-	if err != nil {
-		return err
-	}
-	return nil
+func (s *UserService) UpdateUser(body *models.UpdateReq, id uint) error {
+	return s.userMapper.UpdateById(id, body)
 }
 
-func UserInfo(userId uint) (models.UserBasic, error) {
+func (s *UserService) UserInfo(userId uint) (models.UserBasic, error) {
 	user := models.UserBasic{}
-	err := Mysql.DB.Take(&user, userId).Error
+	err := s.userMapper.GetUserInfoById(userId, &user)
 	if err != nil {
 		return user, err
 	}

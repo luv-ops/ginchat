@@ -11,13 +11,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type FriendController struct {
+	friendService *service.FriendService
+}
+type IFriendController interface {
+	AddFriend(c *gin.Context)
+	RequestList(c *gin.Context)
+	UnReadCount(c *gin.Context)
+	Accept(c *gin.Context)
+	Reject(c *gin.Context)
+	GetFriendList(c *gin.Context)
+	HasRead(c *gin.Context)
+}
+
+func NewFriendController(fs *service.FriendService) *FriendController {
+	return &FriendController{
+		friendService: fs,
+	}
+}
+
 // AddFriend
 // @Tags 好友模块
 // @Summary 添加好友
 // @Param data body models.FriendReq true "登录参数"
 // @Success 200 {object} utils.Response{}
 // @Router /friend/add [post]
-func AddFriend(c *gin.Context) {
+func (con *FriendController) AddFriend(c *gin.Context) {
 
 	fromId, ok := c.Get("userId")
 	if !ok {
@@ -35,7 +54,7 @@ func AddFriend(c *gin.Context) {
 		utils.Fail(c, 400, err.Error())
 		return
 	}
-	err = service.AddFriend(&friendReq)
+	err = con.friendService.AddFriend(&friendReq)
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
@@ -49,13 +68,13 @@ func AddFriend(c *gin.Context) {
 // @Summary 获取好友请求列表
 // @Success 200 {object} utils.Response{data=[]models.FriendApplyResp}
 // @Router /friend/requests [get]
-func RequestList(c *gin.Context) {
+func (con *FriendController) RequestList(c *gin.Context) {
 	targetId, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
 		return
 	}
-	list, err := service.RequestList(targetId.(uint))
+	list, err := con.friendService.RequestList(targetId.(uint))
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
@@ -68,13 +87,13 @@ func RequestList(c *gin.Context) {
 // @Summary 获取好友请求未读计数
 // @Success 200 {object} utils.Response{data=map[string]int64}
 // @Router /friend/requests/unread [get]
-func UnReadCount(c *gin.Context) {
+func (con *FriendController) UnReadCount(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
 		return
 	}
-	count, err := service.UnReadCount(userId.(uint))
+	count, err := con.friendService.UnReadCount(userId.(uint))
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
@@ -88,7 +107,7 @@ func UnReadCount(c *gin.Context) {
 // @Param friendId path string true "好友ID"
 // @Success 200 {object} utils.Response{}
 // @Router /friend/accept/{friendId} [post]
-func Accept(c *gin.Context) {
+func (con *FriendController) Accept(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
@@ -101,7 +120,7 @@ func Accept(c *gin.Context) {
 		utils.Fail(c, 400, "参数错误")
 		return
 	}
-	err = service.Accept(uint(fid), userId.(uint))
+	err = con.friendService.Accept(uint(fid), userId.(uint))
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
@@ -116,7 +135,7 @@ func Accept(c *gin.Context) {
 // @Param friendId path string true "好友ID"
 // @Success 200 {object} utils.Response{}
 // @Router /friend/reject/{friendId} [post]
-func Reject(c *gin.Context) {
+func (con *FriendController) Reject(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
@@ -129,7 +148,7 @@ func Reject(c *gin.Context) {
 		utils.Fail(c, 400, "参数错误")
 		return
 	}
-	err = service.Reject(uint(fid), userId.(uint))
+	err = con.friendService.Reject(uint(fid), userId.(uint))
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
@@ -142,13 +161,13 @@ func Reject(c *gin.Context) {
 // @Summary 获取好友列表
 // @Success 200 {object} utils.Response{data=models.FriendResp}
 // @Router /friend/list [get]
-func GetFriendList(c *gin.Context) {
+func (con *FriendController) GetFriendList(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
 		return
 	}
-	list, err := service.GetFriendList(userId.(uint))
+	list, err := con.friendService.GetFriendList(userId.(uint))
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
@@ -156,13 +175,13 @@ func GetFriendList(c *gin.Context) {
 	utils.Ok(c, list)
 }
 
-func HasRead(c *gin.Context) {
+func (con *FriendController) HasRead(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
 		return
 	}
-	err := service.HasRead(userId.(uint))
+	err := con.friendService.HasRead(userId.(uint))
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return

@@ -1,7 +1,7 @@
 package service
 
 import (
-	"GinChat/Mysql"
+	"GinChat/mapper"
 	"GinChat/models"
 	"errors"
 	"fmt"
@@ -9,19 +9,37 @@ import (
 	"gorm.io/gorm"
 )
 
-func Send(message *models.Message) error {
-	err := Mysql.DB.Create(message).Error
+type ChatService struct {
+	userMapper         *mapper.UserMapper
+	conversationMapper *mapper.ConversationMapper
+	messageMapper      *mapper.MessageMapper
+	messageSender      IMessageSender
+	db                 *gorm.DB
+}
+
+func NewChatService(uM *mapper.UserMapper, cM *mapper.ConversationMapper, mM *mapper.MessageMapper,
+	mS IMessageSender, db *gorm.DB) *ChatService {
+	return &ChatService{
+		userMapper:         uM,
+		conversationMapper: cM,
+		messageMapper:      mM,
+		messageSender:      mS,
+		db:                 db,
+	}
+}
+func (s *ChatService) Send(message *models.Message) error {
+	err := s.messageMapper.CreateMessage(message)
 	if err != nil {
 		return err
 	}
 	//更新会话没有会话则创建
-	err = updateConversation(message)
+	err = s.updateConversation(message)
 	if err != nil {
 		return err
 	}
 	//查询fromId的用户名和头像
 	user := models.UserBasic{}
-	err = Mysql.DB.Model(&user).Select("name,avatar").Where("id = ?", message.FromId).Take(&user).Error
+	err = s.userMapper.GetUserInfoById(message.FromId, &user, "name,avatar")
 	if err != nil {
 		return err
 	}
@@ -33,27 +51,25 @@ func Send(message *models.Message) error {
 	switch message.Type {
 	case "chat":
 		fmt.Println("单聊消息", message)
-		SendWs(message)
+		return s.messageSender.SendWs(message)
 	case "groupMessage":
 		fmt.Println("群聊消息", message)
-		SendWsGroup(&messageVO)
+		return s.messageSender.SendWsGroup(&messageVO)
 	}
 	return nil
 }
 
-func updateConversation(message *models.Message) error {
-	fmt.Printf("%+v", message)
-
-	err := Mysql.DB.Transaction(func(tx *gorm.DB) error {
+func (s *ChatService) updateConversation(message *models.Message) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		//尝试更新，如果RowsAffected == 0则会话不存在则创建
 		//自己发的消息，UpdateColumn不走钩子，性能比update高  同UpdateColumns比updates
 		//更新我们的
-		err1 := sender(tx, message)
+		err1 := s.sender(tx, message)
 		var err2 error
 		//只有单聊才需要双向
 		if message.Type == "chat" {
 			//更新对方的
-			err2 = receiver(tx, message)
+			err2 = s.receiver(tx, message)
 		}
 		if err1 != nil || err2 != nil {
 			if err1 != nil {
@@ -69,22 +85,15 @@ func updateConversation(message *models.Message) error {
 	return nil
 }
 
-func sender(tx *gorm.DB, message *models.Message) error {
+func (s *ChatService) sender(tx *gorm.DB, message *models.Message) error {
 	fmt.Println("发送方", message)
 	var res1 *gorm.DB
 	switch message.Type {
 	case "chat":
-		res1 = tx.Model(&models.Conversation{}).Where("user_id = ? and peer_id = ?", message.FromId, message.TargetId).
-			Updates(map[string]interface{}{
-				"last_msg":  message.Content,
-				"last_time": message.CreateAt,
-			})
+
+		res1 = s.conversationMapper.UpdateWithTxChat(tx, message, message.FromId, message.TargetId)
 	case "groupMessage":
-		res1 = tx.Model(&models.Conversation{}).Where("peer_id = ?", message.TargetId).
-			UpdateColumns(map[string]interface{}{
-				"last_msg":  message.Content,
-				"last_time": message.CreateAt,
-			})
+		res1 = s.conversationMapper.UpdateWithTxGroup(tx, message)
 	default:
 		return errors.New("未知的消息类型")
 	}
@@ -93,51 +102,33 @@ func sender(tx *gorm.DB, message *models.Message) error {
 	}
 	//说明会话记录不存在
 	if res1.RowsAffected == 0 {
-		err := tx.Create(&models.Conversation{
-			UserID:      message.FromId,
-			PeerID:      message.TargetId,
-			LastMsg:     message.Content,
-			LastTime:    message.CreateAt,
-			UnreadCount: 0,
-		}).Error
+		err := s.conversationMapper.CreateConversationWithTx(tx, message, message.FromId, message.TargetId, 0)
 		if err != nil {
 			return err
 		}
 	} else {
 		//会话存在更新未读计数
-		err := tx.Model(&models.Conversation{}).Where("user_id = ? and peer_id = ?", message.FromId, message.TargetId).
-			UpdateColumn("unread_count", 0).Error
+		err := s.conversationMapper.UpdateUnreadWithTx(tx, message)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
-func receiver(tx *gorm.DB, message *models.Message) error {
-	res := tx.Model(&models.Conversation{}).Where("user_id = ? and peer_id = ?", message.TargetId, message.FromId).
-		Updates(map[string]interface{}{
-			"last_msg":  message.Content,
-			"last_time": message.CreateAt,
-		})
+func (s *ChatService) receiver(tx *gorm.DB, message *models.Message) error {
+	res := s.conversationMapper.UpdateWithTxChat(tx, message, message.TargetId, message.FromId)
 	if res.Error != nil {
 		return res.Error
 	}
 	//说明会话记录不存在
 	if res.RowsAffected == 0 {
-		err := tx.Create(&models.Conversation{
-			UserID:      message.TargetId,
-			PeerID:      message.FromId,
-			LastMsg:     message.Content,
-			LastTime:    message.CreateAt,
-			UnreadCount: 1,
-		}).Error
+		err := s.conversationMapper.CreateConversationWithTx(tx, message, message.TargetId, message.FromId, 1)
 		if err != nil {
 			return err
 		}
 	} else {
 		//会话存在更新未读计数
-		err := tx.Model(&models.Conversation{}).Where("user_id = ? and peer_id = ?", message.TargetId, message.FromId).
-			UpdateColumn("unread_count", gorm.Expr("unread_count + ?", 1)).Error
+		err := s.conversationMapper.UpdateUnreadWithTx(tx, message, gorm.Expr("unread_count + ?", 1))
 		if err != nil {
 			return err
 		}

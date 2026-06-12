@@ -9,13 +9,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type ChatController struct {
+	chatService *service.ChatService
+}
+type IChatController interface {
+	Send(c *gin.Context)
+}
+
+func NewChatController(cs *service.ChatService) *ChatController {
+	return &ChatController{
+		chatService: cs,
+	}
+}
+
 // Send
 // @Tags 聊天模块
 // @Summary 发送消息
 // @Param data body models.Message true "聊天参数"
 // @Success 200 {object} utils.Response{data=EmptyData}
 // @Router /upload/send [post]
-func Send(c *gin.Context) {
+func (con *ChatController) Send(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "请先登录")
@@ -36,7 +49,7 @@ func Send(c *gin.Context) {
 		return
 	}
 	message.FromId = userId.(uint)
-	err = service.Send(&message)
+	err = con.chatService.Send(&message)
 	if err != nil {
 		utils.Fail(c, http.StatusInternalServerError, err.Error())
 		return

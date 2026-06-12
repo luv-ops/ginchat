@@ -38,7 +38,7 @@ services:
 
     volumes:
       - Mysql-data:/var/lib/Mysql
-      - ./init.Mysql:/docker-entrypoint-initdb.d/init.Mysql
+      - ./Autowired.Mysql:/docker-entrypoint-initdb.d/Autowired.Mysql
     networks:
       - ginchat-network
     restart: unless-stopped

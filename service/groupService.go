@@ -1,7 +1,7 @@
 package service
 
 import (
-	"GinChat/Mysql"
+	"GinChat/mapper"
 	"GinChat/models"
 	"GinChat/redis"
 	"fmt"
@@ -10,35 +10,38 @@ import (
 	"gorm.io/gorm"
 )
 
-func CreateGroup(userId uint, groupReq *models.CreateGroupReq) error {
+type GroupService struct {
+	groupMapper        *mapper.GroupMapper
+	conversationMapper *mapper.ConversationMapper
+	db                 *gorm.DB
+}
+
+func NewGroupService(gM *mapper.GroupMapper, cM *mapper.ConversationMapper, db *gorm.DB) *GroupService {
+	return &GroupService{
+		groupMapper:        gM,
+		conversationMapper: cM,
+		db:                 db,
+	}
+}
+func (s *GroupService) CreateGroup(userId uint, groupReq *models.CreateGroupReq) error {
 	group := models.GroupModel{
 		GroupName:  groupReq.GroupName,
 		OwnerID:    userId,
 		TotalCount: 1,
 	}
-	err := Mysql.DB.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		//创建群聊
-		err := tx.Create(&group).Error
+		err := s.groupMapper.CreateGroupWithTx(tx, &group)
 		if err != nil {
 			return err
 		}
 		//创建群成员
-		err = tx.Create(&models.GroupMember{
-			UserID:  userId,
-			GroupID: group.ID,
-			IsMute:  0,
-			Role:    2,
-		}).Error
+		err = s.groupMapper.CreateMemberWithTx(tx, userId, group.ID)
 		if err != nil {
 			return err
 		}
 		//创建群主->群的会话
-		err = tx.Create(&models.Conversation{
-			UserID:      userId,
-			PeerID:      group.ID,
-			UnreadCount: 0,
-			Type:        1,
-		}).Error
+		err = s.conversationMapper.CreateConversationGroupWithTx(tx, userId, group.ID)
 		if err != nil {
 			return err
 		}
@@ -51,8 +54,8 @@ func CreateGroup(userId uint, groupReq *models.CreateGroupReq) error {
 
 }
 
-func InviteGroup(inviteReq *models.InviteReq) error {
-	err := Mysql.DB.Transaction(func(tx *gorm.DB) error {
+func (s *GroupService) InviteGroup(inviteReq *models.InviteReq) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		members := []models.GroupMember{}
 		for _, id := range inviteReq.InvitedId {
 			members = append(members, models.GroupMember{
@@ -61,7 +64,7 @@ func InviteGroup(inviteReq *models.InviteReq) error {
 			})
 		}
 		//批量插入
-		err := tx.Create(&members).Error
+		err := s.groupMapper.InviteMemberWithTx(tx, &members)
 		if err != nil {
 			return err
 		}
@@ -75,11 +78,11 @@ func InviteGroup(inviteReq *models.InviteReq) error {
 			})
 		}
 
-		err = tx.Create(&conversations).Error
+		err = s.conversationMapper.CreateConversationsGroupWithTx(tx, &conversations)
 		if err != nil {
 			return err
 		}
-		err = tx.Model(&models.GroupModel{}).Where("id=?", inviteReq.GroupId).UpdateColumn("total_count", gorm.Expr("total_count+?", len(inviteReq.InvitedId))).Error
+		err = s.groupMapper.UpdateMemberCountWithTx(tx, inviteReq)
 		if err != nil {
 			return err
 		}
@@ -102,20 +105,16 @@ func InviteGroup(inviteReq *models.InviteReq) error {
 	return nil
 }
 
-func GroupDetail(groupId uint64) (models.GroupDetailVO, error) {
+func (s *GroupService) GroupDetail(groupId uint64) (models.GroupDetailVO, error) {
 	var detail models.GroupDetailVO
 	group := models.GroupModel{}
-	err := Mysql.DB.Model(&models.GroupModel{}).Where("id=?", groupId).Take(&group).Error
+	err := s.groupMapper.GetGroupInfo(groupId, &group)
 	if err != nil {
 		return detail, err
 	}
 	members := []models.GroupMemberVO{}
 	//只查8个人
-	err = Mysql.DB.Table("group_members gm").Where("gm.group_id=?", groupId).
-		Joins("join user_basic u on gm.user_id=u.id").
-		Select("u.avatar,u.name,gm.role,gm.user_id as userId").Limit(8).
-		Order("gm.role desc").
-		Find(&members).Error
+	err = s.groupMapper.GetMember8Info(groupId, &members)
 	if err != nil {
 		return detail, err
 	}
@@ -130,13 +129,9 @@ func GroupDetail(groupId uint64) (models.GroupDetailVO, error) {
 	return detail, nil
 }
 
-func GroupMembers(groupId uint64, groupMemberReq *models.GroupMemberReq) ([]models.GroupMemberVO, error) {
+func (s *GroupService) GroupMembers(groupId uint64, groupMemberReq *models.GroupMemberReq) ([]models.GroupMemberVO, error) {
 	var members []models.GroupMemberVO
-	err := Mysql.DB.Debug().Table("group_members gm").Where("gm.group_id=?", groupId).
-		Joins("join user_basic u on gm.user_id=u.id").
-		Select("u.avatar,u.name,gm.role,gm.user_id as userId").
-		Limit(groupMemberReq.PageSize).
-		Offset((groupMemberReq.Page - 1) * groupMemberReq.PageSize).Find(&members).Error
+	err := s.groupMapper.GetMemberPageInfo(groupId, groupMemberReq, &members)
 	if err != nil {
 		return nil, err
 	}

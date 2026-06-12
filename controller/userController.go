@@ -11,6 +11,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type UserController struct {
+	userService *service.UserService
+}
+type IUserController interface {
+	GetUserList(c *gin.Context)
+	Login(c *gin.Context)
+	Register(c *gin.Context)
+	DeleteUser(c *gin.Context)
+	UpdateUser(c *gin.Context)
+	UserInfo(c *gin.Context)
+}
+
+func NewUserController(uS *service.UserService) *UserController {
+	return &UserController{
+		userService: uS,
+	}
+}
+
 type EmptyData struct{}
 
 // GetUserList
@@ -18,9 +36,9 @@ type EmptyData struct{}
 // @Summary 获取用户列表
 // @Success 200 {object} utils.Response{data=[]models.UserRes}
 // @Router /user/list [get]
-func GetUserList(c *gin.Context) {
+func (con *UserController) GetUserList(c *gin.Context) {
 
-	data, err := service.GetUserList()
+	data, err := con.userService.GetUserList()
 	if err != nil {
 		utils.Fail(c, 500, "删除失败")
 		return
@@ -34,14 +52,14 @@ func GetUserList(c *gin.Context) {
 // @Param data body models.LoginReq true "登录参数"
 // @Success 200 {object} utils.Response{data=models.UserRes}
 // @Router /user/login [post]
-func Login(c *gin.Context) {
+func (con *UserController) Login(c *gin.Context) {
 	body := models.LoginReq{}
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
 	}
-	user, err := service.Login(&body)
+	user, err := con.userService.Login(&body)
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
@@ -66,7 +84,7 @@ func Login(c *gin.Context) {
 // @Param data body models.RegisterReq true "登录参数"
 // @Success 200 {object} utils.Response{data=EmptyData}
 // @Router /user/register [post]
-func Register(c *gin.Context) {
+func (con *UserController) Register(c *gin.Context) {
 	var body models.RegisterReq
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
@@ -77,7 +95,7 @@ func Register(c *gin.Context) {
 		utils.Fail(c, 400, "前后密码不一致")
 		return
 	}
-	err = service.Register(&body)
+	err = con.userService.Register(&body)
 	if err != nil {
 		utils.Fail(c, 500, err.Error())
 		return
@@ -90,14 +108,14 @@ func Register(c *gin.Context) {
 // @Summary 删除用户
 // @Success 200 {object} utils.Response{data=EmptyData}
 // @Router /user/delete [post]
-func DeleteUser(c *gin.Context) {
+func (con *UserController) DeleteUser(c *gin.Context) {
 	id, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
 		return
 	}
 	//类型断言
-	err := service.DeleteUser(id.(uint))
+	err := con.userService.DeleteUser(id.(uint))
 	if err != nil {
 		utils.Fail(c, 500, err.Error())
 		return
@@ -111,7 +129,7 @@ func DeleteUser(c *gin.Context) {
 // @Param data body models.UpdateReq true "修改参数"
 // @Success 200 {object} utils.Response{data=EmptyData}
 // @Router /user/update [post]
-func UpdateUser(c *gin.Context) {
+func (con *UserController) UpdateUser(c *gin.Context) {
 	body := models.UpdateReq{}
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
@@ -131,7 +149,7 @@ func UpdateUser(c *gin.Context) {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
 		return
 	}
-	err = service.UpdateUser(&body, id.(uint))
+	err = con.userService.UpdateUser(&body, id.(uint))
 	if err != nil {
 		utils.Fail(c, 500, err.Error())
 		return
@@ -145,14 +163,14 @@ func UpdateUser(c *gin.Context) {
 // @Param userId query int true "用户ID"
 // @Success 200 {object} utils.Response{data=[]models.UserRes}
 // @Router /user/info [get]
-func UserInfo(c *gin.Context) {
+func (con *UserController) UserInfo(c *gin.Context) {
 	id := c.Query("userId")
 	if id == "" {
 		utils.Fail(c, 400, "参数错误")
 		return
 	}
 	userId, _ := strconv.ParseUint(id, 10, 64)
-	userInfo, err := service.UserInfo(uint(userId))
+	userInfo, err := con.userService.UserInfo(uint(userId))
 	if err != nil {
 		utils.Fail(c, 500, err.Error())
 		return

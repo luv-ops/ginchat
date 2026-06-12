@@ -11,13 +11,29 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type GroupController struct {
+	groupService *service.GroupService
+}
+type IGroupController interface {
+	CreateGroup(c *gin.Context)
+	InviteGroup(c *gin.Context)
+	GroupDetail(c *gin.Context)
+	GroupMembers(c *gin.Context)
+}
+
+func NewGroupController(gS *service.GroupService) *GroupController {
+	return &GroupController{
+		groupService: gS,
+	}
+}
+
 // CreateGroup
 // @Tags 群组模块
 // @Summary 创建群聊
 // @Param data body models.CreateGroupReq true "创建群参数"
 // @Success 200 {object} utils.Response{data=EmptyData}
 // @Router /group/create [post]
-func CreateGroup(c *gin.Context) {
+func (con *GroupController) CreateGroup(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
@@ -33,7 +49,7 @@ func CreateGroup(c *gin.Context) {
 		utils.Fail(c, http.StatusBadRequest, "群名称不能为空")
 		return
 	}
-	err = service.CreateGroup(userId.(uint), &groupReq)
+	err = con.groupService.CreateGroup(userId.(uint), &groupReq)
 	if err != nil {
 		utils.Fail(c, 500, "创建群聊失败")
 		return
@@ -47,7 +63,7 @@ func CreateGroup(c *gin.Context) {
 // @Param data body models.InviteReq true "邀请入群参数"
 // @Success 200 {object} utils.Response{data=EmptyData}
 // @Router /group/invite [post]
-func InviteGroup(c *gin.Context) {
+func (con *GroupController) InviteGroup(c *gin.Context) {
 	_, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
@@ -59,7 +75,7 @@ func InviteGroup(c *gin.Context) {
 		utils.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	err = service.InviteGroup(&inviteReq)
+	err = con.groupService.InviteGroup(&inviteReq)
 	if err != nil {
 		utils.Fail(c, 500, "邀请失败")
 		return
@@ -73,7 +89,7 @@ func InviteGroup(c *gin.Context) {
 // @Param groupId path uint true "群组ID"
 // @Success 200 {object} utils.Response{data=models.GroupDetailVO}
 // @Router /group/detail/{groupId} [get]
-func GroupDetail(c *gin.Context) {
+func (con *GroupController) GroupDetail(c *gin.Context) {
 	_, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
@@ -85,7 +101,7 @@ func GroupDetail(c *gin.Context) {
 		utils.Fail(c, http.StatusBadRequest, "参数错误")
 		return
 	}
-	detail, err := service.GroupDetail(groupId)
+	detail, err := con.groupService.GroupDetail(groupId)
 	if err != nil {
 		utils.Fail(c, 500, "获取群详情失败")
 		return
@@ -100,7 +116,7 @@ func GroupDetail(c *gin.Context) {
 // @Param data query models.GroupMemberReq true "查询参数"
 // @Success 200 {object} utils.Response{data=models.GroupMemberVO}
 // @Router /group/members/{groupId} [get]
-func GroupMembers(c *gin.Context) {
+func (con *GroupController) GroupMembers(c *gin.Context) {
 	_, ok := c.Get("userId")
 	if !ok {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
@@ -119,7 +135,7 @@ func GroupMembers(c *gin.Context) {
 		return
 	}
 	fmt.Println(groupMemberReq)
-	members, err := service.GroupMembers(groupId, &groupMemberReq)
+	members, err := con.groupService.GroupMembers(groupId, &groupMemberReq)
 	if err != nil {
 		utils.Fail(c, 500, "获取群成员失败")
 		return

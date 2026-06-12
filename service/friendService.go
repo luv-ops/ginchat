@@ -1,7 +1,7 @@
 package service
 
 import (
-	"GinChat/Mysql"
+	"GinChat/mapper"
 	"GinChat/models"
 	"GinChat/redis"
 	"errors"
@@ -11,34 +11,52 @@ import (
 	"gorm.io/gorm"
 )
 
-func AddFriend(friendReq *models.FriendReq) error {
+type FriendService struct {
+	friendMapper  *mapper.FriendMapper
+	userMapper    *mapper.UserMapper
+	messageSender IMessageSender
+	db            *gorm.DB
+}
+
+func NewFriendService(fm *mapper.FriendMapper, uM *mapper.UserMapper, mS IMessageSender, db *gorm.DB) *FriendService {
+	return &FriendService{
+		friendMapper:  fm,
+		userMapper:    uM,
+		messageSender: mS,
+		db:            db,
+	}
+}
+func (s *FriendService) AddFriend(friendReq *models.FriendReq) error {
 	var count int64
 	//查询用户是否存在
-	err := Mysql.DB.Take(&models.UserBasic{}, friendReq.TargetId).Error
+	err := s.userMapper.UserExistById(friendReq.TargetId)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("用户不存在")
 		}
 		return err
 	}
-	Mysql.DB.Model(&models.FriendReq{}).Where("from_id = ? and target_id = ?", friendReq.FromId, friendReq.TargetId).
-		Where("status = ?", 0).Count(&count)
+
+	err = s.friendMapper.FriendReqExist(friendReq.FromId, friendReq.TargetId, &count)
+	if err != nil {
+		return err
+	}
 	if count > 0 {
 		return errors.New("好友请求已经存在,请等待对方回应")
 	}
 	//判断是否已经是好友
 	var friendCount int64
-	Mysql.DB.Model(&models.Friends{}).Where("user_id = ? and friend_id = ?", friendReq.FromId, friendReq.TargetId).
-		Where("status = ?", 1).Count(&friendCount)
-	if friendCount > 0 {
-		return errors.New("你们已经是好友")
-	}
-	err = Mysql.DB.Create(friendReq).Error
+	err = s.friendMapper.FriendsExist(friendReq.FromId, friendReq.TargetId, &friendCount)
 	if err != nil {
 		return err
 	}
-	user := &models.UserBasic{}
-	Mysql.DB.Take(&user, friendReq.FromId)
+	if friendCount > 0 {
+		return errors.New("你们已经是好友")
+	}
+	err = s.friendMapper.CreateFriendReq(friendReq)
+	if err != nil {
+		return err
+	}
 	//推送添加好友申请
 	message := models.Message{
 		FromId:   friendReq.FromId,
@@ -54,52 +72,32 @@ func AddFriend(friendReq *models.FriendReq) error {
 			fmt.Println("自增好友请求未读缓存失败", err.Error())
 		}
 	}()
+	//SendWs(&message)
+	return s.messageSender.SendWs(&message)
 
-	SendWs(&message)
-	return nil
 }
 
-func RequestList(targetId uint) ([]models.FriendApplyResp, error) {
+func (s *FriendService) RequestList(targetId uint) ([]models.FriendApplyResp, error) {
 	list := []models.FriendApplyResp{}
 	//查全部，
-	err := Mysql.DB.Table("friend_reqs fq").Where("from_id = ? or target_id = ?", targetId, targetId).
-		Where("status in ?", []string{"0", "3"}).
-		//如果发起者是我，就拿对方 ID 去关联名字
-		//如果发起者是对方，就拿对方 ID 去关联名字
-		Joins("LEFT JOIN user_basic ON "+
-			"CASE WHEN fq.from_id = ? THEN fq.target_id ELSE fq.from_id END = user_basic.id", targetId).
-		Select("fq.from_id,fq.target_id,fq.status,user_basic.name,user_basic.avatar,fq.create_at").
-		Order("fq.create_at desc").
-		Find(&list).Error
-
+	err := s.friendMapper.SelectFriendReqListAndInfo(targetId, &list)
 	if err != nil {
 		return list, err
-	}
-	for e := range list {
-		fmt.Println(list[e])
 	}
 	return list, nil
 }
 
-func Accept(fromId uint, targetId uint) error {
-	err := Mysql.DB.Transaction(func(tx *gorm.DB) error {
-		err := tx.Model(&models.FriendReq{}).
-			Where("from_id = ? and target_id = ? and status in ?", fromId, targetId, []string{"0", "3"}). //只处理状态为0的请求
-			UpdateColumn("status", 1).Error
+func (s *FriendService) Accept(fromId uint, targetId uint) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		err := s.friendMapper.UpdateStatusWithTx(tx, fromId, targetId)
 		if err != nil {
 			return err
 		}
-		err = tx.Create(&models.Friends{
-			UserId:   fromId,
-			FriendId: targetId,
-		}).Error
+		err = s.friendMapper.CreateFriendsWithTx(tx, fromId, targetId)
 		if err != nil {
 			return err
 		}
-		err = tx.Create(&models.Friends{
-			UserId:   targetId,
-			FriendId: fromId,
-		}).Error
+		err = s.friendMapper.CreateFriendsWithTx(tx, targetId, fromId)
 		if err != nil {
 			return err
 		}
@@ -129,17 +127,11 @@ func Accept(fromId uint, targetId uint) error {
 	}()
 	return nil
 }
-func Reject(fromId uint, targetId uint) error {
-	err := Mysql.DB.Model(&models.FriendReq{}).
-		Where("from_id = ? and target_id = ? and status in ?", fromId, targetId, []string{"0", "3"}).
-		UpdateColumn("status", 2).Error
-	if err != nil {
-		return err
-	}
-	return nil
+func (s *FriendService) Reject(fromId uint, targetId uint) error {
+	return s.friendMapper.UpdateStatus(fromId, targetId)
 }
 
-func GetFriendList(id uint) ([]models.FriendResp, error) {
+func (s *FriendService) GetFriendList(id uint) ([]models.FriendResp, error) {
 	list := []models.FriendResp{}
 	//先查redis
 	list, err := redis.GetFriendList(id)
@@ -151,9 +143,7 @@ func GetFriendList(id uint) ([]models.FriendResp, error) {
 		}
 		return list, nil
 	}
-	err = Mysql.DB.Model(&models.Friends{}).Joins("left join user_basic on user_basic.id = friends.friend_id").
-		Select("user_basic.id,user_basic.name,user_basic.avatar").
-		Find(&list, "friends.user_id = ?", id).Error
+	err = s.friendMapper.SelectFriendListAndInfo(id, &list)
 
 	if err != nil {
 		return list, err
@@ -176,15 +166,14 @@ func GetFriendList(id uint) ([]models.FriendResp, error) {
 	return list, nil
 }
 
-func UnReadCount(userid uint) (int64, error) {
+func (s *FriendService) UnReadCount(userid uint) (int64, error) {
 	var count int64
 	//先查redis
 	unread, err := redis.GetFriendReqUnread(userid)
 	if err == nil {
 		return unread, nil
 	}
-	err = Mysql.DB.Model(&models.FriendReq{}).Where("target_id = ? and status = ?", userid, 0).
-		Count(&count).Error
+	err = s.friendMapper.FriendReqUnreadCount(userid, &count)
 	//写回redis
 	go func() {
 		if e := recover(); e != nil {
@@ -202,13 +191,12 @@ func UnReadCount(userid uint) (int64, error) {
 
 }
 
-func HasRead(userId uint) error {
-	err := Mysql.DB.Model(&models.FriendReq{}).Where("target_id = ? and status = ?", userId, 0).
-		Update("status", 3).Error
+func (s *FriendService) HasRead(userId uint) error {
+	err := s.friendMapper.FriendReqHasRead(userId)
 	if err != nil {
 		return err
 	}
-	redis.SetFriendReqUnread(userId, 0)
+	_ = redis.SetFriendReqUnread(userId, 0)
 	return nil
 
 }
