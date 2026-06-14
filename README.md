@@ -4,7 +4,7 @@
 qq邮箱:3110940369@qq.com
 ## 技术栈
 - Golang、Gin、GORM
-- MySQL、Redis
+- MySQL、Redis、Kafka
 - WebSocket 长连接、JWT 统一鉴权
 - Docker、Docker Compose 容器化部署
 - Swagger API 文档、Viper 配置管理
@@ -15,6 +15,7 @@ qq邮箱:3110940369@qq.com
 - 好友管理、会话列表、未读消息计数
 - 用户在线状态维护
 - Redis 缓存好友列表、在线状态、群成员id信息
+- kafka明显降低聊天、好友申请接口耗时
 - JWT 无状态身份认证，支持 HTTP 与 WebSocket 统一鉴权
 - 支持文件上传、接口文档自动生成
 - Docker Compose 一键部署、多环境兼容
@@ -24,3 +25,4 @@ qq邮箱:3110940369@qq.com
 - MySQL + Redis 多级存储，缓存热点数据，降低数据库压力
 - 完整工程化结构，代码规范，易于维护与扩展
 - 容器化编排，部署简单，可快速迁移上线
+- 使用kafka异步入库，降低接口耗时
