@@ -1,11 +1,16 @@
 package service
 
 import (
+	"GinChat/MQ"
 	"GinChat/mapper"
 	"GinChat/models"
+	"context"
 	"errors"
 	"fmt"
+	"log"
+	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -15,19 +20,73 @@ type ChatService struct {
 	messageMapper      *mapper.MessageMapper
 	messageSender      IMessageSender
 	db                 *gorm.DB
+	kafkaCli           *MQ.KafkaClient
 }
 
 func NewChatService(uM *mapper.UserMapper, cM *mapper.ConversationMapper, mM *mapper.MessageMapper,
-	mS IMessageSender, db *gorm.DB) *ChatService {
+	mS IMessageSender, db *gorm.DB, kC *MQ.KafkaClient) *ChatService {
 	return &ChatService{
 		userMapper:         uM,
 		conversationMapper: cM,
 		messageMapper:      mM,
 		messageSender:      mS,
 		db:                 db,
+		kafkaCli:           kC,
 	}
 }
-func (s *ChatService) Send(message *models.Message) error {
+
+// 供controller层使用
+func (s *ChatService) Send(ctx context.Context, message *models.Message) error {
+	if message.Content == "" {
+		return errors.New("消息内容不能为空")
+	}
+	var mType int
+	switch message.Type {
+	case "chat":
+		mType = MQ.ChatTypePrivate
+	case "groupMessage":
+		mType = MQ.ChatTypeGroup
+	default:
+		return errors.New("未知的消息类型")
+	}
+	//组装kafka消息
+	dto := MQ.MsgDTO{
+		MsgID:    uuid.NewString(),
+		FromID:   message.FromId,
+		TargetID: message.TargetId,
+		ChatType: mType,
+		MsgType:  message.MsgType,
+		Content:  message.Content,
+	}
+	var err error
+	start := time.Now()
+	if mType == MQ.ChatTypePrivate {
+		err = s.kafkaCli.SendPrivateMsg(ctx, &dto)
+	} else {
+		err = s.kafkaCli.SendGroupMsg(ctx, &dto)
+	}
+	cost := time.Since(start)
+	log.Printf("【Kafka发送耗时】%s", cost)
+
+	return err
+}
+
+// 供kafka异步调用，并通过实现防止循环引用
+func (s *ChatService) HandleMsg(dto *MQ.MsgDTO) error {
+	var mType string
+	switch dto.ChatType {
+	case MQ.ChatTypePrivate:
+		mType = "chat"
+	case MQ.ChatTypeGroup:
+		mType = "groupMessage"
+	}
+	message := &models.Message{
+		FromId:   dto.FromID,
+		TargetId: dto.TargetID,
+		MsgType:  dto.MsgType,
+		Type:     mType,
+		Content:  dto.Content,
+	}
 	err := s.messageMapper.CreateMessage(message)
 	if err != nil {
 		return err

@@ -1,7 +1,7 @@
 package config
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/spf13/viper"
@@ -24,5 +24,5 @@ func InitConfig() {
 	if redisAddr != "" {
 		viper.Set("redis.addr", redisAddr)
 	}
-	fmt.Println("config Autowired success")
+	log.Println("config Autowired success")
 }

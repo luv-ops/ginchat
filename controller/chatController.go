@@ -49,7 +49,8 @@ func (con *ChatController) Send(c *gin.Context) {
 		return
 	}
 	message.FromId = userId.(uint)
-	err = con.chatService.Send(&message)
+	err = con.chatService.Send(c.Request.Context(), &message)
+
 	if err != nil {
 		utils.Fail(c, http.StatusInternalServerError, err.Error())
 		return

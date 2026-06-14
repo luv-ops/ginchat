@@ -8,7 +8,7 @@ type Message struct {
 	ID       uint      `json:"id"`
 	FromId   uint      `json:"fromId"`
 	TargetId uint      `json:"targetId"`
-	Type     string    `json:"type"`  //单聊，群聊 chat ,groupMessage,friendRequest
+	Type     string    `json:"type"`  //单聊，群聊 ,好友请求 chat ,groupMessage,friendRequest
 	Media    int       `json:"media"` //图片，文本，音频
 	Content  string    `json:"content"`
 	MsgType  int       `json:"msgType"` // 0 文本 1 图片  (后续可以扩展为2 音频)

@@ -1,7 +1,7 @@
 package Mysql
 
 import (
-	"fmt"
+	"log"
 
 	"github.com/spf13/viper"
 	"gorm.io/driver/mysql"
@@ -18,6 +18,6 @@ func InitMySql() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Mysql Autowired success")
+	log.Println("Mysql Autowired success")
 	DB = db
 }

@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -30,5 +31,5 @@ func InitRedis() {
 		panic(err)
 	}
 	Rdb = rdb
-	fmt.Println("redis Autowired success")
+	log.Println("redis Autowired success")
 }

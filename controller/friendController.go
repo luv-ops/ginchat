@@ -54,7 +54,7 @@ func (con *FriendController) AddFriend(c *gin.Context) {
 		utils.Fail(c, 400, err.Error())
 		return
 	}
-	err = con.friendService.AddFriend(&friendReq)
+	err = con.friendService.AddFriend(c.Request.Context(), &friendReq)
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
