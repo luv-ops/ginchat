@@ -53,8 +53,8 @@ type MessageHandler interface {
 
 var MsgHandler MessageHandler
 
-type FriendApplyHandler interface {
+type FriendHandler interface {
 	HandleFReq(dto *MsgDTO) error
 }
 
-var FriReqHandler FriendApplyHandler
+var FriReqHandler FriendHandler
