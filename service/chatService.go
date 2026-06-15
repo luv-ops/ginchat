@@ -61,9 +61,9 @@ func (s *ChatService) Send(ctx context.Context, message *models.Message) error {
 	var err error
 	start := time.Now()
 	if mType == MQ.ChatTypePrivate {
-		err = s.kafkaCli.SendPrivateMsg(ctx, &dto)
+		err = s.kafkaCli.SendCommonMsg(ctx, &dto, MQ.TopicPrivateMsg)
 	} else {
-		err = s.kafkaCli.SendGroupMsg(ctx, &dto)
+		err = s.kafkaCli.SendCommonMsg(ctx, &dto, MQ.TopicGroupMsg)
 	}
 	cost := time.Since(start)
 	log.Printf("【Kafka发送耗时】%s", cost)

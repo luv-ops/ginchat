@@ -42,7 +42,7 @@ func (s *FriendService) AddFriend(ctx context.Context, friendReq *models.FriendR
 		TargetID: friendReq.TargetId,
 		ChatType: MQ.ChatTypeFriendRequest,
 	}
-	return s.kafkaCli.SendFriendReq(ctx, &dto)
+	return s.kafkaCli.SendCommonMsg(ctx, &dto, MQ.TopicFriendReq)
 
 }
 
@@ -101,56 +101,6 @@ func (s *FriendService) HandleFReq(dto *MQ.MsgDTO) error {
 	return s.messageSender.SendWs(&message)
 
 }
-
-//func (s *FriendService) AddFriend(friendReq *models.FriendReq) error {
-//	var count int64
-//	//查询用户是否存在
-//	err := s.userMapper.UserExistById(friendReq.TargetId)
-//	if err != nil {
-//		if errors.Is(err, gorm.ErrRecordNotFound) {
-//			return errors.New("用户不存在")
-//		}
-//		return err
-//	}
-//
-//	err = s.friendMapper.FriendReqExist(friendReq.FromId, friendReq.TargetId, &count)
-//	if err != nil {
-//		return err
-//	}
-//	if count > 0 {
-//		return errors.New("好友请求已经存在,请等待对方回应")
-//	}
-//	//判断是否已经是好友
-//	var friendCount int64
-//	err = s.friendMapper.FriendsExist(friendReq.FromId, friendReq.TargetId, &friendCount)
-//	if err != nil {
-//		return err
-//	}
-//	if friendCount > 0 {
-//		return errors.New("你们已经是好友")
-//	}
-//	err = s.friendMapper.CreateFriendReq(friendReq)
-//	if err != nil {
-//		return err
-//	}
-//	//推送添加好友申请
-//	message := models.Message{
-//		FromId:   friendReq.FromId,
-//		TargetId: friendReq.TargetId,
-//		Type:     "friendRequest",
-//	}
-//	go func() {
-//		if e := recover(); e != nil {
-//			fmt.Println("自增好友请求未读缓存更新pinic", e)
-//		}
-//		err = redis.IncrFriendReqUnread(friendReq.TargetId)
-//		if err != nil {
-//			fmt.Println("自增好友请求未读缓存失败", err.Error())
-//		}
-//	}()
-//	return s.messageSender.SendWs(&message)
-//
-//}
 
 func (s *FriendService) RequestList(targetId uint) ([]models.FriendApplyResp, error) {
 	list := []models.FriendApplyResp{}

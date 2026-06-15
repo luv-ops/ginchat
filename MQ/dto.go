@@ -36,8 +36,12 @@ type MsgDTO struct {
 func (m *MsgDTO) GetPartitionKey() string {
 	if m.ChatType == ChatTypePrivate {
 		return fmt.Sprintf("%d_%d", m.FromID, m.TargetID)
+	} else if m.ChatType == ChatTypeGroup {
+		return fmt.Sprintf("g_%d", m.TargetID)
+	} else {
+		return fmt.Sprintf("f_%d", m.FromID)
 	}
-	return fmt.Sprintf("g_%d", m.TargetID)
+
 }
 func (m *MsgDTO) Marshal() ([]byte, error) {
 	return json.Marshal(m)
@@ -46,13 +50,14 @@ func (m *MsgDTO) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, m)
 }
 
-// HandleMsg由chatService实现 需要注入chatService
+// MessageHandler 由chatService实现 需要注入chatService
 type MessageHandler interface {
 	HandleMsg(dto *MsgDTO) error
 }
 
 var MsgHandler MessageHandler
 
+// FriendHandler 由friendService实现
 type FriendHandler interface {
 	HandleFReq(dto *MsgDTO) error
 }
