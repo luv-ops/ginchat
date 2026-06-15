@@ -7,56 +7,21 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-func (k *KafkaClient) SendPrivateMsg(ctx context.Context, dto *MsgDTO) error {
+// SendCommonMsg 目前无较大业务差距
+func (k *KafkaClient) SendCommonMsg(ctx context.Context, dto *MsgDTO, topic string) error {
 	data, err := dto.Marshal()
 	if err != nil {
 		log.Printf("私聊消息序列化失败 msgId=%s err=%v", dto.MsgID, err)
 		return err
 	}
 	msg := kafka.Message{
-		Topic: TopicPrivateMsg,
+		Topic: topic,
 		Key:   []byte(dto.GetPartitionKey()),
 		Value: data,
 	}
 	err = k.writer.WriteMessages(ctx, msg)
 	if err != nil {
-		log.Printf("私聊消息序列化失败 msgId=%s err=%v", dto.MsgID, err)
-		return err
-	}
-	return nil
-}
-func (k *KafkaClient) SendGroupMsg(ctx context.Context, dto *MsgDTO) error {
-	data, err := dto.Marshal()
-	if err != nil {
-		log.Printf("群聊消息序列化失败 msgId=%s err=%v", dto.MsgID, err)
-		return err
-	}
-	msg := kafka.Message{
-		Topic: TopicGroupMsg,
-		Key:   []byte(dto.GetPartitionKey()),
-		Value: data,
-	}
-	err = k.writer.WriteMessages(ctx, msg)
-	if err != nil {
-		log.Printf("群聊消息序列化失败 msgId=%s err=%v", dto.MsgID, err)
-		return err
-	}
-	return nil
-}
-func (k *KafkaClient) SendFriendReq(ctx context.Context, dto *MsgDTO) error {
-	data, err := dto.Marshal()
-	if err != nil {
-		log.Printf("好友请求序列化失败 msgId=%s err=%v", dto.MsgID, err)
-		return err
-	}
-	msg := kafka.Message{
-		Topic: TopicFriendReq,
-		Key:   []byte(dto.GetPartitionKey()),
-		Value: data,
-	}
-	err = k.writer.WriteMessages(ctx, msg)
-	if err != nil {
-		log.Printf("好友请求序列化失败 msgId=%s err=%v", dto.MsgID, err)
+		log.Printf("消息序列化失败 msgId=%s err=%v", dto.MsgID, err)
 		return err
 	}
 	return nil

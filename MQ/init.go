@@ -22,14 +22,10 @@ func InitKafkaConfig() {
 
 // StartAllConsumers 统一启动所有消费者协程
 func StartAllConsumers(ctx context.Context) {
-	// 私聊消息消费
-	go GlobalKafkaCli.StartPrivateConsumer(ctx)
-
-	// 群聊消息消费
-	go GlobalKafkaCli.StartGroupConsumer(ctx)
-
-	// 好友申请推送消费
-	go GlobalKafkaCli.StartFriendApplyConsumer(ctx)
+	// websocket相关消息消费
+	go GlobalKafkaCli.StartCommonConsumer(ctx, TopicPrivateMsg)
+	go GlobalKafkaCli.StartCommonConsumer(ctx, TopicGroupMsg)
+	go GlobalKafkaCli.StartCommonConsumer(ctx, TopicFriendReq)
 
 	log.Println("✅ 全部Kafka消费者后台启动完成")
 }
