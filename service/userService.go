@@ -36,8 +36,11 @@ func (s *UserService) Register(body *models.RegisterReq) error {
 		return errors.New("用户已经存在")
 	}
 	//密码加密
-	encode, slat := utils.Md5Encode(body.Password)
-	user := models.UserBasic{Name: body.Name, Password: encode, Salt: slat}
+	encode, err := utils.Encode(body.Password)
+	if err != nil {
+		return err
+	}
+	user := models.UserBasic{Name: body.Name, Password: encode}
 	err = s.userMapper.CreateUser(&user)
 	//应对高并发
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -60,7 +63,7 @@ func (s *UserService) Login(body *models.LoginReq) (*models.UserBasic, error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, errors.New("用户不存在")
 	}
-	if !utils.Equal(body.Password, user.Salt, user.Password) {
+	if !utils.Verify(user.Password, body.Password) {
 		return nil, errors.New("密码错误")
 	}
 	return &user, nil

@@ -8,7 +8,6 @@ type UserBasic struct {
 	Password      string `gorm:"not null"`
 	Email         string `json:"email" binding:"required,email"`
 	Phone         string
-	Salt          string
 	Avatar        string `json:"avatar"`
 	ClientIp      string
 	ClientPort    string

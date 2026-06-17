@@ -8,7 +8,7 @@ qq邮箱:3110940369@qq.com
 - WebSocket 长连接、JWT 统一鉴权
 - Docker、Docker Compose 容器化部署
 - Swagger API 文档、Viper 配置管理
-- MD5 加盐加密、跨域处理
+- 采用bcrypt加密,安全性比MD5更高
 
 ## 核心功能
 - 单聊、群聊、消息实时推送
