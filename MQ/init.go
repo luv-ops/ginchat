@@ -12,9 +12,12 @@ var GlobalKafkaCli *KafkaClient
 func InitKafkaConfig() {
 	broker := viper.GetString("kafka.broker")
 	client, err := NewKafkaClient([]string{broker})
+
 	if err != nil {
-		log.Println("kafka初始化失败", err.Error())
 		panic(err)
+	}
+	if err = client.PreCreateTopic(); err != nil {
+		log.Printf("预创建Kafka Topic失败: %v", err)
 	}
 	GlobalKafkaCli = client
 	log.Println("kafka初始化成功")

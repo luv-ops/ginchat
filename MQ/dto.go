@@ -23,19 +23,20 @@ const (
 
 // kafka消息数据结构
 type MsgDTO struct {
-	MsgID    string `json:"msg_id"`
-	FromID   uint   `json:"from_uid"`
-	TargetID uint   `json:"target_id"`
-	ChatType int    `json:"chat_type"`
-	MsgType  int    `json:"msg_type"`
-	Content  string `json:"content"`
-	SendTime int64  `json:"send_time"`
+	MsgID      string `json:"msg_id"`
+	FromID     uint   `json:"from_uid"`
+	TargetID   uint   `json:"target_id"`
+	ChatType   int    `json:"chat_type"`
+	MsgType    int    `json:"msg_type"`
+	Content    string `json:"content"`
+	SendTime   int64  `json:"send_time"`
+	UserOnline bool   `json:"user_online"`
 }
 
 // 根据消息的type来分区，保证消息有序
 func (m *MsgDTO) GetPartitionKey() string {
 	if m.ChatType == ChatTypePrivate {
-		return fmt.Sprintf("%d_%d", m.FromID, m.TargetID)
+		return fmt.Sprintf("%d_%d", min(m.FromID, m.TargetID), max(m.FromID, m.TargetID))
 	} else if m.ChatType == ChatTypeGroup {
 		return fmt.Sprintf("g_%d", m.TargetID)
 	} else {

@@ -11,10 +11,11 @@ import (
 // StartCommonConsumer 目前无较大业务差距
 func (k *KafkaClient) StartCommonConsumer(ctx context.Context, topic string) {
 	reader := kafka.NewReader(kafka.ReaderConfig{
-		Brokers: k.brokers,
-		GroupID: ConsumerGroupID,
-		Topic:   topic,
-		MaxWait: 100 * time.Millisecond,
+		Brokers:     k.brokers,
+		GroupID:     ConsumerGroupID,
+		Topic:       topic,
+		MaxWait:     100 * time.Millisecond,
+		StartOffset: kafka.FirstOffset,
 	})
 	defer reader.Close()
 	for {

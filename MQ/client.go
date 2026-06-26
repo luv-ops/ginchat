@@ -1,6 +1,7 @@
 package MQ
 
 import (
+	"errors"
 	"time"
 
 	"github.com/segmentio/kafka-go"
@@ -14,6 +15,7 @@ type KafkaClient struct {
 }
 
 func NewKafkaClient(brokers []string) (*KafkaClient, error) {
+
 	//主消息写入器
 	mainWriter := kafka.Writer{
 		Addr:         kafka.TCP(brokers...),
@@ -43,4 +45,25 @@ func NewKafkaClient(brokers []string) (*KafkaClient, error) {
 func (k *KafkaClient) Close() error {
 	_ = k.dlqW.Close()
 	return k.writer.Close()
+}
+func (k *KafkaClient) PreCreateTopic() error {
+	conn, err := kafka.Dial("tcp", k.brokers[0])
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	topics := []kafka.TopicConfig{
+		{Topic: TopicPrivateMsg, NumPartitions: 1, ReplicationFactor: 1},
+		{Topic: TopicGroupMsg, NumPartitions: 1, ReplicationFactor: 1},
+		{Topic: TopicFriendReq, NumPartitions: 1, ReplicationFactor: 1},
+		{Topic: DlqTopic, NumPartitions: 1, ReplicationFactor: 1}, // 别忘了死信队列
+	}
+	err = conn.CreateTopics(topics...)
+	if err != nil {
+		if errors.Is(err, kafka.TopicAlreadyExists) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
