@@ -29,7 +29,7 @@ func InitService() {
 	FriendService = service.NewFriendService(FriendMapper, UserMapper, WebsocketService, Mysql.DB, MQ.GlobalKafkaCli)
 
 	ConversationService = service.NewConversationService(ConversationMapper)
-	ChatService = service.NewChatService(UserMapper, ConversationMapper, MessageMapper, WebsocketService, Mysql.DB, MQ.GlobalKafkaCli)
+	ChatService = service.NewChatService(UserMapper, ConversationMapper, MessageMapper, FriendMapper, GroupMapper, WebsocketService, Mysql.DB, MQ.GlobalKafkaCli)
 	//FriendService，ChatService实现了MessageHandler接口
 	//注入到MQ
 	MQ.FriReqHandler = FriendService

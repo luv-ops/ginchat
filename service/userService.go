@@ -29,10 +29,10 @@ func (s *UserService) GetUserList() (*[]models.UserBasic, error) {
 
 func (s *UserService) Register(body *models.RegisterReq) error {
 
-	var count int64
-	err := s.userMapper.UserExistByName(body.Name, &count)
+	var exist bool
+	err := s.userMapper.UserExistByName(body.Name, &exist)
 	//为了用户体验
-	if count > 0 {
+	if exist {
 		return errors.New("用户已经存在")
 	}
 	//密码加密
@@ -74,6 +74,14 @@ func (s *UserService) DeleteUser(id uint) error {
 }
 
 func (s *UserService) UpdateUser(body *models.UpdateReq, id uint) error {
+	var exist bool
+	err := s.userMapper.UserExistById(id, &exist)
+	if err != nil {
+		return err
+	}
+	if !exist {
+		return errors.New("用户不存在")
+	}
 	return s.userMapper.UpdateById(id, body)
 }
 

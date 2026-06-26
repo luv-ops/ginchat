@@ -23,11 +23,11 @@ func (m *UserMapper) GetUserList(data *[]models.UserBasic) error {
 func (m *UserMapper) CreateUser(user *models.UserBasic) error {
 	return m.db.Create(user).Error
 }
-func (m *UserMapper) UserExistByName(name string, count *int64) error {
-	return m.db.Model(&models.UserBasic{}).Where("name=?", name).Count(count).Error
+func (m *UserMapper) UserExistByName(name string, exist *bool) error {
+	return m.db.Raw("select exists(select 1 from user_basic where name = ?)", name).Scan(exist).Error
 }
-func (m *UserMapper) UserExistById(id uint) error {
-	return m.db.Take(&models.UserBasic{}, id).Error
+func (m *UserMapper) UserExistById(id uint, exist *bool) error {
+	return m.db.Raw("select exists(select 1 from user_basic where id = ?)", id).Scan(exist).Error
 }
 func (m *UserMapper) SelectByName(name string, user *models.UserBasic) error {
 	return m.db.Take(user, "name=?", name).Error

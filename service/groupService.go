@@ -55,16 +55,32 @@ func (s *GroupService) CreateGroup(userId uint, groupReq *models.CreateGroupReq)
 }
 
 func (s *GroupService) InviteGroup(inviteReq *models.InviteReq) error {
-	err := s.db.Transaction(func(tx *gorm.DB) error {
+	//获取哪些id已经在群里面了
+	var existIds []uint
+	err := s.groupMapper.ExistsMemberIds(&inviteReq.InvitedId, inviteReq.GroupId, &existIds)
+	if err != nil {
+		return err
+	}
+	existMap := make(map[uint]bool)
+	for _, id := range existIds {
+		existMap[id] = true
+	}
+	var needAddIds []uint
+	for _, id := range inviteReq.InvitedId {
+		if !existMap[id] {
+			needAddIds = append(needAddIds, id)
+		}
+	}
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		members := []models.GroupMember{}
-		for _, id := range inviteReq.InvitedId {
+		for _, id := range needAddIds {
 			members = append(members, models.GroupMember{
 				GroupID: inviteReq.GroupId,
 				UserID:  id,
 			})
 		}
 		//批量插入
-		err := s.groupMapper.InviteMemberWithTx(tx, &members)
+		err = s.groupMapper.InviteMemberWithTx(tx, &members)
 		if err != nil {
 			return err
 		}

@@ -33,7 +33,7 @@ func NewFriendService(fm *mapper.FriendMapper, uM *mapper.UserMapper, mS IMessag
 	}
 }
 
-// 供controller层使用
+// AddFriend 供controller层使用
 func (s *FriendService) AddFriend(ctx context.Context, friendReq *models.FriendReq) error {
 	//组装kafka消息
 	dto := MQ.MsgDTO{
@@ -53,30 +53,30 @@ func (s *FriendService) HandleFReq(dto *MQ.MsgDTO) error {
 		FromId:   dto.FromID,
 		TargetId: dto.TargetID,
 	}
-	var count int64
+	var exist bool
 	//查询用户是否存在
-	err := s.userMapper.UserExistById(friendReq.TargetId)
+	err := s.userMapper.UserExistById(friendReq.TargetId, &exist)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("用户不存在")
-		}
 		return err
+	}
+	if !exist {
+		return errors.New("用户不存在")
 	}
 
-	err = s.friendMapper.FriendReqExist(friendReq.FromId, friendReq.TargetId, &count)
+	err = s.friendMapper.FriendReqExist(friendReq.FromId, friendReq.TargetId, &exist)
 	if err != nil {
 		return err
 	}
-	if count > 0 {
+	if exist {
 		return errors.New("好友请求已经存在,请等待对方回应")
 	}
+
 	//判断是否已经是好友
-	var friendCount int64
-	err = s.friendMapper.FriendsExist(friendReq.FromId, friendReq.TargetId, &friendCount)
+	err = s.friendMapper.FriendsExist(friendReq.FromId, friendReq.TargetId, &exist)
 	if err != nil {
 		return err
 	}
-	if friendCount > 0 {
+	if exist {
 		return errors.New("你们已经是好友")
 	}
 	err = s.friendMapper.CreateFriendReq(friendReq)

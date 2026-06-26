@@ -17,17 +17,21 @@ type ChatService struct {
 	userMapper         *mapper.UserMapper
 	conversationMapper *mapper.ConversationMapper
 	messageMapper      *mapper.MessageMapper
+	friendMapper       *mapper.FriendMapper
+	groupMappper       *mapper.GroupMapper
 	messageSender      IMessageSender
 	db                 *gorm.DB
 	kafkaCli           *MQ.KafkaClient
 }
 
 func NewChatService(uM *mapper.UserMapper, cM *mapper.ConversationMapper, mM *mapper.MessageMapper,
-	mS IMessageSender, db *gorm.DB, kC *MQ.KafkaClient) *ChatService {
+	fM *mapper.FriendMapper, gM *mapper.GroupMapper, mS IMessageSender, db *gorm.DB, kC *MQ.KafkaClient) *ChatService {
 	return &ChatService{
 		userMapper:         uM,
 		conversationMapper: cM,
 		messageMapper:      mM,
+		friendMapper:       fM,
+		groupMappper:       gM,
 		messageSender:      mS,
 		db:                 db,
 		kafkaCli:           kC,
@@ -44,7 +48,6 @@ func (s *ChatService) Send(ctx context.Context, message *models.Message) error {
 	var err error
 	switch message.Type {
 	case "chat":
-
 		mType = MQ.ChatTypePrivate
 		//查询redis，单聊判断用户是否在线
 		val, err = redis.GetUserLine(message.TargetId)
@@ -82,8 +85,27 @@ func (s *ChatService) HandleMsg(dto *MQ.MsgDTO) error {
 	var mType string
 	switch dto.ChatType {
 	case MQ.ChatTypePrivate:
+
+		var friendExist bool
+		err := s.friendMapper.FriendsExist(dto.FromID, dto.TargetID, &friendExist)
+		if err != nil {
+			return err
+		}
+		if !friendExist {
+			return errors.New("你们不是好友，无法发送消息")
+		}
 		mType = "chat"
 	case MQ.ChatTypeGroup:
+
+		//TODO 判断是否在群中
+		var memberExist bool
+		err := s.groupMappper.MemberExistsGroup(dto.FromID, dto.TargetID, &memberExist)
+		if err != nil {
+			return err
+		}
+		if !memberExist {
+			return errors.New("你不在该群中，无法发送消息")
+		}
 		mType = "groupMessage"
 	}
 	message := &models.Message{
