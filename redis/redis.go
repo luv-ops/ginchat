@@ -16,6 +16,8 @@ const (
 	UnreadExpire       = 3 * 24 * time.Hour
 	KeyGroupMemberId   = "group:member:"
 	KeyFriendList      = "friend:list:"
+	UserOffline        = 0
+	LockSession        = "lock:session:"
 )
 
 func SetUserOnline(userId uint, status int) error {
@@ -32,7 +34,7 @@ func GetUserLine(userId uint) (int, error) {
 	val, err := Rdb.Get(Ctx, key).Int()
 	if errors.Is(err, redis.Nil) {
 		//key不存在默认离线
-		return 0, nil
+		return UserOffline, nil
 	}
 	return val, nil
 }

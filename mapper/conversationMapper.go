@@ -43,12 +43,12 @@ func (m *ConversationMapper) UpdateWithTxChat(tx *gorm.DB, message *models.Messa
 			"last_time": message.CreateAt,
 		})
 }
-func (m *ConversationMapper) UpdateWithTxGroup(tx *gorm.DB, message *models.Message) *gorm.DB {
+func (m *ConversationMapper) UpdateWithTxGroup(tx *gorm.DB, message *models.Message) error {
 	return tx.Model(&models.Conversation{}).Where("peer_id = ?", message.TargetId).
 		UpdateColumns(map[string]interface{}{
 			"last_msg":  message.Content,
 			"last_time": message.CreateAt,
-		})
+		}).Error
 }
 func (m *ConversationMapper) CreateConversationWithTx(tx *gorm.DB, message *models.Message, fromId uint, targetId uint, unread uint) error {
 	return tx.Create(&models.Conversation{

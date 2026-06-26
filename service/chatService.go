@@ -4,11 +4,10 @@ import (
 	"GinChat/MQ"
 	"GinChat/mapper"
 	"GinChat/models"
+	"GinChat/redis"
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -41,32 +40,39 @@ func (s *ChatService) Send(ctx context.Context, message *models.Message) error {
 		return errors.New("消息内容不能为空")
 	}
 	var mType int
+	var val int
+	var err error
 	switch message.Type {
 	case "chat":
+
 		mType = MQ.ChatTypePrivate
+		//查询redis，单聊判断用户是否在线
+		val, err = redis.GetUserLine(message.TargetId)
+		if err != nil {
+			fmt.Println("chatService获取用户在线状态失败")
+		}
 	case "groupMessage":
 		mType = MQ.ChatTypeGroup
 	default:
 		return errors.New("未知的消息类型")
 	}
+
 	//组装kafka消息
 	dto := MQ.MsgDTO{
-		MsgID:    uuid.NewString(),
-		FromID:   message.FromId,
-		TargetID: message.TargetId,
-		ChatType: mType,
-		MsgType:  message.MsgType,
-		Content:  message.Content,
+		MsgID:      uuid.NewString(),
+		FromID:     message.FromId,
+		TargetID:   message.TargetId,
+		ChatType:   mType,
+		MsgType:    message.MsgType,
+		Content:    message.Content,
+		UserOnline: val > 0,
 	}
-	var err error
-	start := time.Now()
+	//生产
 	if mType == MQ.ChatTypePrivate {
 		err = s.kafkaCli.SendCommonMsg(ctx, &dto, MQ.TopicPrivateMsg)
 	} else {
 		err = s.kafkaCli.SendCommonMsg(ctx, &dto, MQ.TopicGroupMsg)
 	}
-	cost := time.Since(start)
-	log.Printf("【Kafka发送耗时】%s", cost)
 
 	return err
 }
@@ -81,6 +87,7 @@ func (s *ChatService) HandleMsg(dto *MQ.MsgDTO) error {
 		mType = "groupMessage"
 	}
 	message := &models.Message{
+		MsgId:    dto.MsgID,
 		FromId:   dto.FromID,
 		TargetId: dto.TargetID,
 		MsgType:  dto.MsgType,
@@ -109,10 +116,12 @@ func (s *ChatService) HandleMsg(dto *MQ.MsgDTO) error {
 	}
 	switch message.Type {
 	case "chat":
-		fmt.Println("单聊消息", message)
-		return s.messageSender.SendWs(message)
+		fmt.Println("对方在线状态", dto.UserOnline)
+		if dto.UserOnline {
+			return s.messageSender.SendWs(message)
+		}
+		return nil
 	case "groupMessage":
-		fmt.Println("群聊消息", message)
 		return s.messageSender.SendWsGroup(&messageVO)
 	}
 	return nil
@@ -145,33 +154,37 @@ func (s *ChatService) updateConversation(message *models.Message) error {
 }
 
 func (s *ChatService) sender(tx *gorm.DB, message *models.Message) error {
-	fmt.Println("发送方", message)
+
 	var res1 *gorm.DB
 	switch message.Type {
 	case "chat":
 
+		var err error
 		res1 = s.conversationMapper.UpdateWithTxChat(tx, message, message.FromId, message.TargetId)
+		if res1.Error != nil {
+			return res1.Error
+		}
+		if res1.RowsAffected == 0 {
+			err = s.conversationMapper.CreateConversationWithTx(tx, message, message.FromId, message.TargetId, 0)
+			if err != nil {
+				return err
+			}
+		} else {
+			//会话存在更新未读计数
+			err = s.conversationMapper.UpdateUnreadWithTx(tx, message)
+			if err != nil {
+				return err
+			}
+		}
 	case "groupMessage":
-		res1 = s.conversationMapper.UpdateWithTxGroup(tx, message)
+		err := s.conversationMapper.UpdateWithTxGroup(tx, message)
+		if err != nil {
+			return err
+		}
 	default:
 		return errors.New("未知的消息类型")
 	}
-	if res1.Error != nil {
-		return res1.Error
-	}
-	//说明会话记录不存在
-	if res1.RowsAffected == 0 {
-		err := s.conversationMapper.CreateConversationWithTx(tx, message, message.FromId, message.TargetId, 0)
-		if err != nil {
-			return err
-		}
-	} else {
-		//会话存在更新未读计数
-		err := s.conversationMapper.UpdateUnreadWithTx(tx, message)
-		if err != nil {
-			return err
-		}
-	}
+
 	return nil
 }
 func (s *ChatService) receiver(tx *gorm.DB, message *models.Message) error {

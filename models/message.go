@@ -6,6 +6,7 @@ import (
 
 type Message struct {
 	ID       uint      `json:"id"`
+	MsgId    string    `json:"msg_id"` //用于kafka溯源id
 	FromId   uint      `json:"fromId"`
 	TargetId uint      `json:"targetId"`
 	Type     string    `json:"type"`  //单聊，群聊 ,好友请求 chat ,groupMessage,friendRequest
