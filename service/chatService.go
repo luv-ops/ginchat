@@ -96,8 +96,6 @@ func (s *ChatService) HandleMsg(dto *MQ.MsgDTO) error {
 		}
 		mType = "chat"
 	case MQ.ChatTypeGroup:
-
-		//TODO 判断是否在群中
 		var memberExist bool
 		err := s.groupMappper.MemberExistsGroup(dto.FromID, dto.TargetID, &memberExist)
 		if err != nil {
