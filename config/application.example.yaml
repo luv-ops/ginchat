@@ -1,6 +1,8 @@
 mysql:
-  dsn: "root:your_password@tcp(127.0.0.1:3306)/go_chat?charset=utf8mb4&parseTime=True&loc=Local"
+  #TODO 你的角色:你的数据库密码，这里出于隐私安全，我不会暴露我的密码
+  dsn: "your_role:your_password@tcp(127.0.0.1:3306)/go_chat?charset=utf8mb4&parseTime=True&loc=Local"
 jwt:
+  # key可以随心设置
   key: "4bZ5xQ9aR2sP7kD6nG8hF0gS1dF2gH4jK5lL6k"
 redis:
   addr: "localhost:6379"
@@ -9,3 +11,5 @@ redis:
   MinIdleConns: 10
 file:
   domain: "http://127.0.0.1:8080"
+kafka:
+  broker: "127.0.0.1:9092"

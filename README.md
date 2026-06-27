@@ -1,7 +1,16 @@
 # GinChat 即时通讯系统（Go后端）
-基于 Go + Gin + WebSocket + MySQL + Redis 实现的高性能 IM 后端，支持高并发消息推送、在线状态管理、多级缓存优化与容器化部署。
+基于 Go + Gin + WebSocket + MySQL + Redis+ Kafka 实现的高性能 IM 后端，支持高并发消息推送、在线状态管理、多级缓存优化与容器化部署。
 ### 联系我
 qq邮箱:3110940369@qq.com
+
+## 部署
+### 1. 克隆项目到本地
+### 2. 修改config/application.example.yaml为config/application.yaml,并修改dsn
+### 3. 修改docker-compose.example.yml为docker-compose.yml,并修改mysql的dsn和密码
+### 4. 需要修改的地方已经用TODO标记
+### 5. 如果想直接看到项目效果请键入命令(前提有docker环境): docker compose up -d
+### 6. 启动成功后直接在浏览器输入localhost就能看到前端页面(端口是80，所以不需要输入端口)
+
 ## 技术栈
 - Golang、Gin、GORM
 - MySQL、Redis、Kafka
