@@ -120,7 +120,7 @@ func (con *FriendController) Accept(c *gin.Context) {
 		utils.Fail(c, 400, "参数错误")
 		return
 	}
-	err = con.friendService.Accept(uint(fid), userId.(uint))
+	err = con.friendService.Accept(c.Request.Context(), uint(fid), userId.(uint))
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
@@ -181,7 +181,7 @@ func (con *FriendController) HasRead(c *gin.Context) {
 		utils.Fail(c, http.StatusUnauthorized, "用户未登录")
 		return
 	}
-	err := con.friendService.HasRead(userId.(uint))
+	err := con.friendService.HasRead(c.Request.Context(), userId.(uint))
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return

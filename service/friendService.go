@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -37,7 +36,6 @@ func NewFriendService(fm *mapper.FriendMapper, uM *mapper.UserMapper, mS IMessag
 func (s *FriendService) AddFriend(ctx context.Context, friendReq *models.FriendReq) error {
 	//组装kafka消息
 	dto := MQ.MsgDTO{
-		MsgID:    uuid.NewString(),
 		FromID:   friendReq.FromId,
 		TargetID: friendReq.TargetId,
 		ChatType: MQ.ChatTypeFriendRequest,
@@ -112,7 +110,21 @@ func (s *FriendService) RequestList(targetId uint) ([]models.FriendApplyResp, er
 	return list, nil
 }
 
-func (s *FriendService) Accept(fromId uint, targetId uint) error {
+// Accept 供控制层调用
+func (s *FriendService) Accept(ctx context.Context, fromId uint, targetId uint) error {
+	dto := MQ.MsgDTO{
+		FromID:   fromId,
+		TargetID: targetId,
+		ChatType: MQ.ChatTypeFriendRequestAccept,
+	}
+	return s.kafkaCli.SendCommonMsg(ctx, &dto, MQ.TopicFriendReqAccept)
+}
+
+// HandleFReqAccept 供kafka消费使用
+func (s *FriendService) HandleFReqAccept(dto *MQ.MsgDTO) error {
+	fromId := dto.FromID
+	targetId := dto.TargetID
+	//更新好友状态
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		err := s.friendMapper.UpdateStatusWithTx(tx, fromId, targetId)
 		if err != nil {
@@ -216,12 +228,19 @@ func (s *FriendService) UnReadCount(userid uint) (int64, error) {
 
 }
 
-func (s *FriendService) HasRead(userId uint) error {
+func (s *FriendService) HasRead(ctx context.Context, userId uint) error {
+	dto := MQ.MsgDTO{
+		FromID:   userId,
+		ChatType: MQ.ChatTypeFriendRequestHasRead,
+	}
+	return s.kafkaCli.SendCommonMsg(ctx, &dto, MQ.TopicFriendReqHasRead)
+}
+func (s *FriendService) HandleFReqHasRead(dto *MQ.MsgDTO) error {
+	userId := dto.FromID
 	err := s.friendMapper.FriendReqHasRead(userId)
 	if err != nil {
 		return err
 	}
 	_ = redis.SetFriendReqUnread(userId, 0)
 	return nil
-
 }

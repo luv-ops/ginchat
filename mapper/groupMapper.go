@@ -47,11 +47,7 @@ func (m *GroupMapper) InviteMemberWithTx(tx *gorm.DB, members *[]models.GroupMem
 // UpdateMemberCountWithTx 使用事务更新群组成员数量
 
 func (m *GroupMapper) UpdateMemberCountWithTx(tx *gorm.DB, inviteReq *models.InviteReq) error {
-	// 使用GORM的Model方法指定要更新的表(models.GroupModel{})
-	// 使用Where条件筛选出特定的群组(通过inviteReq.GroupId)
-	// 使用UpdateColumn更新total_count字段
-	// 通过gorm.Expr实现SQL表达式"total_count+?"，其中?被替换为len(inviteReq.InvitedId)
-	// 即将群组成员总数增加被邀请的用户数量
+
 	return tx.Model(&models.GroupModel{}).Where("id=?", inviteReq.GroupId).UpdateColumn("total_count", gorm.Expr("total_count+?", len(inviteReq.InvitedId))).Error
 }
 
@@ -107,5 +103,6 @@ func (m *GroupMapper) MemberExistsGroup(userId uint, groupId uint, memberExist *
 }
 
 func (m *GroupMapper) ExistsMemberIds(inviteIds *[]uint, groupId uint, existIds *[]uint) error {
-	return m.db.Model(&models.GroupMember{}).Where(" user_id in (?) and group_id = ?", &inviteIds, groupId).Pluck("user_id", existIds).Error
+	// **才是解引用
+	return m.db.Model(&models.GroupMember{}).Where(" user_id in ? and group_id = ?", *inviteIds, groupId).Pluck("user_id", existIds).Error
 }

@@ -57,6 +57,11 @@ func (k *KafkaClient) PreCreateTopic() error {
 		{Topic: TopicGroupMsg, NumPartitions: 1, ReplicationFactor: 1},
 		{Topic: TopicFriendReq, NumPartitions: 1, ReplicationFactor: 1},
 		{Topic: DlqTopic, NumPartitions: 1, ReplicationFactor: 1}, // 别忘了死信队列
+		{Topic: TopicFriendReqAccept, NumPartitions: 1, ReplicationFactor: 1},
+		{Topic: TopicFriendReqHasRead, NumPartitions: 1, ReplicationFactor: 1},
+		{Topic: TopicGroupCreate, NumPartitions: 1, ReplicationFactor: 1},
+		{Topic: TopicGroupInvite, NumPartitions: 1, ReplicationFactor: 1},
+		{Topic: TopicUserCreate, NumPartitions: 1, ReplicationFactor: 1},
 	}
 	err = conn.CreateTopics(topics...)
 	if err != nil {

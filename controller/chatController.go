@@ -27,7 +27,7 @@ func NewChatController(cs *service.ChatService) *ChatController {
 // @Summary 发送消息
 // @Param data body models.Message true "聊天参数"
 // @Success 200 {object} utils.Response{data=EmptyData}
-// @Router /upload/send [post]
+// @Router /chat/send [post]
 func (con *ChatController) Send(c *gin.Context) {
 	userId, ok := c.Get("userId")
 	if !ok {

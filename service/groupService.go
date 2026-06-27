@@ -1,9 +1,11 @@
 package service
 
 import (
+	"GinChat/MQ"
 	"GinChat/mapper"
 	"GinChat/models"
 	"GinChat/redis"
+	"context"
 	"fmt"
 	"strconv"
 
@@ -14,18 +16,32 @@ type GroupService struct {
 	groupMapper        *mapper.GroupMapper
 	conversationMapper *mapper.ConversationMapper
 	db                 *gorm.DB
+	kafkaCli           *MQ.KafkaClient
 }
 
-func NewGroupService(gM *mapper.GroupMapper, cM *mapper.ConversationMapper, db *gorm.DB) *GroupService {
+func NewGroupService(gM *mapper.GroupMapper, cM *mapper.ConversationMapper, db *gorm.DB, kC *MQ.KafkaClient) *GroupService {
 	return &GroupService{
 		groupMapper:        gM,
 		conversationMapper: cM,
 		db:                 db,
+		kafkaCli:           kC,
 	}
 }
-func (s *GroupService) CreateGroup(userId uint, groupReq *models.CreateGroupReq) error {
+func (s *GroupService) CreateGroup(ctx context.Context, userId uint, groupReq *models.CreateGroupReq) error {
+	dto := MQ.GroupDTO{
+		OwnerID:   userId,
+		GroupName: groupReq.GroupName,
+		Type:      MQ.GroupCreate,
+	}
+	return s.kafkaCli.ProduceGroup(ctx, &dto, MQ.TopicGroupCreate)
+
+}
+func (s *GroupService) HandleGroupCreate(dto *MQ.GroupDTO) error {
+	userId := dto.OwnerID
+	groupName := dto.GroupName
+
 	group := models.GroupModel{
-		GroupName:  groupReq.GroupName,
+		GroupName:  groupName,
 		OwnerID:    userId,
 		TotalCount: 1,
 	}
@@ -51,11 +67,10 @@ func (s *GroupService) CreateGroup(userId uint, groupReq *models.CreateGroupReq)
 		return err
 	}
 	return nil
-
 }
-
-func (s *GroupService) InviteGroup(inviteReq *models.InviteReq) error {
+func (s *GroupService) InviteGroup(ctx context.Context, inviteReq *models.InviteReq) error {
 	//获取哪些id已经在群里面了
+
 	var existIds []uint
 	err := s.groupMapper.ExistsMemberIds(&inviteReq.InvitedId, inviteReq.GroupId, &existIds)
 	if err != nil {
@@ -71,16 +86,30 @@ func (s *GroupService) InviteGroup(inviteReq *models.InviteReq) error {
 			needAddIds = append(needAddIds, id)
 		}
 	}
-	err = s.db.Transaction(func(tx *gorm.DB) error {
-		members := []models.GroupMember{}
-		for _, id := range needAddIds {
+	dto := MQ.GroupDTO{
+		GroupID:   inviteReq.GroupId,
+		InviteIds: needAddIds,
+		Type:      MQ.GroupInvite,
+	}
+	return s.kafkaCli.ProduceGroup(ctx, &dto, MQ.TopicGroupInvite)
+
+}
+func (s *GroupService) HandleGroupInvite(dto *MQ.GroupDTO) error {
+	inviteReq := &models.InviteReq{
+		GroupId:   dto.GroupID,
+		InvitedId: dto.InviteIds,
+	}
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		var members []models.GroupMember
+		for _, id := range inviteReq.InvitedId {
 			members = append(members, models.GroupMember{
 				GroupID: inviteReq.GroupId,
 				UserID:  id,
 			})
 		}
 		//批量插入
-		err = s.groupMapper.InviteMemberWithTx(tx, &members)
+		err := s.groupMapper.InviteMemberWithTx(tx, &members)
 		if err != nil {
 			return err
 		}
@@ -120,7 +149,6 @@ func (s *GroupService) InviteGroup(inviteReq *models.InviteReq) error {
 	}()
 	return nil
 }
-
 func (s *GroupService) GroupDetail(groupId uint64) (models.GroupDetailVO, error) {
 	var detail models.GroupDetailVO
 	group := models.GroupModel{}
@@ -128,7 +156,7 @@ func (s *GroupService) GroupDetail(groupId uint64) (models.GroupDetailVO, error)
 	if err != nil {
 		return detail, err
 	}
-	members := []models.GroupMemberVO{}
+	var members []models.GroupMemberVO
 	//只查8个人
 	err = s.groupMapper.GetMember8Info(groupId, &members)
 	if err != nil {

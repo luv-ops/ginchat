@@ -29,7 +29,11 @@ func StartAllConsumers(ctx context.Context) {
 	go GlobalKafkaCli.StartCommonConsumer(ctx, TopicPrivateMsg)
 	go GlobalKafkaCli.StartCommonConsumer(ctx, TopicGroupMsg)
 	go GlobalKafkaCli.StartCommonConsumer(ctx, TopicFriendReq)
-
+	go GlobalKafkaCli.StartCommonConsumer(ctx, TopicFriendReqAccept)
+	go GlobalKafkaCli.StartCommonConsumer(ctx, TopicFriendReqHasRead)
+	go GlobalKafkaCli.StartGroupConsumer(ctx, TopicGroupCreate)
+	go GlobalKafkaCli.StartGroupConsumer(ctx, TopicGroupInvite)
+	go GlobalKafkaCli.StartUserConsumer(ctx, TopicUserCreate)
 	log.Println("✅ 全部Kafka消费者后台启动完成")
 }
 

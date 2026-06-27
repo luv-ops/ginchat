@@ -21,9 +21,9 @@ func InitService() {
 	WebsocketService = service.NewWebsocketService(GroupMapper, UserMapper)
 
 	// ✅ 再初始化依赖 MessageSender 的 Service
-	UserService = service.NewUserService(UserMapper)
+	UserService = service.NewUserService(UserMapper, MQ.GlobalKafkaCli)
 	MessageService = service.NewMessageService(MessageMapper)
-	GroupService = service.NewGroupService(GroupMapper, ConversationMapper, Mysql.DB)
+	GroupService = service.NewGroupService(GroupMapper, ConversationMapper, Mysql.DB, MQ.GlobalKafkaCli)
 
 	// ✅ WebsocketService 实现了 MessageSender 接口，可以直接传入
 	FriendService = service.NewFriendService(FriendMapper, UserMapper, WebsocketService, Mysql.DB, MQ.GlobalKafkaCli)
@@ -34,4 +34,6 @@ func InitService() {
 	//注入到MQ
 	MQ.FriReqHandler = FriendService
 	MQ.MsgHandler = ChatService
+	MQ.GroHandler = GroupService
+	MQ.UHandler = UserService
 }

@@ -49,7 +49,7 @@ func (con *GroupController) CreateGroup(c *gin.Context) {
 		utils.Fail(c, http.StatusBadRequest, "群名称不能为空")
 		return
 	}
-	err = con.groupService.CreateGroup(userId.(uint), &groupReq)
+	err = con.groupService.CreateGroup(c.Request.Context(), userId.(uint), &groupReq)
 	if err != nil {
 		utils.Fail(c, 500, "创建群聊失败")
 		return
@@ -75,7 +75,7 @@ func (con *GroupController) InviteGroup(c *gin.Context) {
 		utils.Fail(c, http.StatusBadRequest, err.Error())
 		return
 	}
-	err = con.groupService.InviteGroup(&inviteReq)
+	err = con.groupService.InviteGroup(c.Request.Context(), &inviteReq)
 	if err != nil {
 		utils.Fail(c, 500, "邀请失败")
 		return

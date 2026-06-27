@@ -1,9 +1,11 @@
 package service
 
 import (
+	"GinChat/MQ"
 	"GinChat/mapper"
 	"GinChat/models"
 	"GinChat/utils"
+	"context"
 	"errors"
 
 	"gorm.io/gorm"
@@ -11,11 +13,13 @@ import (
 
 type UserService struct {
 	userMapper *mapper.UserMapper
+	kafkaCli   *MQ.KafkaClient
 }
 
-func NewUserService(uM *mapper.UserMapper) *UserService {
+func NewUserService(uM *mapper.UserMapper, kc *MQ.KafkaClient) *UserService {
 	return &UserService{
 		userMapper: uM,
+		kafkaCli:   kc,
 	}
 }
 func (s *UserService) GetUserList() (*[]models.UserBasic, error) {
@@ -27,20 +31,31 @@ func (s *UserService) GetUserList() (*[]models.UserBasic, error) {
 	return &data, nil
 }
 
-func (s *UserService) Register(body *models.RegisterReq) error {
+func (s *UserService) Register(ctx context.Context, body *models.RegisterReq) error {
 
 	var exist bool
 	err := s.userMapper.UserExistByName(body.Name, &exist)
-	//为了用户体验
-	if exist {
-		return errors.New("用户已经存在")
-	}
-	//密码加密
-	encode, err := utils.Encode(body.Password)
 	if err != nil {
 		return err
 	}
-	user := models.UserBasic{Name: body.Name, Password: encode}
+	if exist {
+		return errors.New("用户已经存在")
+	}
+	dto := MQ.UserDTO{
+		Name:     body.Name,
+		Password: body.Password,
+	}
+	return s.kafkaCli.ProduceUser(ctx, &dto, MQ.TopicUserCreate)
+}
+func (s *UserService) HandleUserCreate(dto *MQ.UserDTO) error {
+	password := dto.Password
+	name := dto.Name
+	//密码加密
+	encode, err := utils.Encode(password)
+	if err != nil {
+		return err
+	}
+	user := models.UserBasic{Name: name, Password: encode}
 	err = s.userMapper.CreateUser(&user)
 	//应对高并发
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -51,7 +66,6 @@ func (s *UserService) Register(body *models.RegisterReq) error {
 	}
 	return nil
 }
-
 func (s *UserService) Login(body *models.LoginReq) (*models.UserBasic, error) {
 
 	user := models.UserBasic{}

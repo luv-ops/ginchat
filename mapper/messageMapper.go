@@ -24,7 +24,7 @@ func (m *MessageMapper) ChatMessage(userId uint, messageReq *models.MessageReq) 
 }
 func (m *MessageMapper) ChatGroup(messageReq *models.MessageReq) *gorm.DB {
 	return m.db.Model(&models.Message{}).Table("messages ms").
-		Select("ms.id, ms.from_id, ms.target_id, ms.type, ms.content, ms.media, ms.picture, ms.url, ms.create_at, "+
+		Select("ms.id, ms.from_id, ms.target_id, ms.type, ms.msg_type,ms.content, ms.media, ms.picture, ms.url, ms.create_at, "+
 			"ub.name as from_name, ub.avatar as from_avatar").
 		Joins("join user_basic ub on ms.from_id = ub.id").
 		Where("target_id = ? AND type = ?", messageReq.PeerId, messageReq.Type)

@@ -95,7 +95,7 @@ func (con *UserController) Register(c *gin.Context) {
 		utils.Fail(c, 400, "前后密码不一致")
 		return
 	}
-	err = con.userService.Register(&body)
+	err = con.userService.Register(c.Request.Context(), &body)
 	if err != nil {
 		utils.Fail(c, 500, err.Error())
 		return
