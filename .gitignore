@@ -1,7 +1,5 @@
 config/application.yaml
-static/
 test/
-init.sql
 markdown.md
 docker-compose.yml
 .idea
