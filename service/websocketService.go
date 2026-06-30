@@ -29,63 +29,98 @@ type IMessageSender interface {
 	SendWs(msg *models.Message) error
 	SendWsGroup(msg *models.MessageVO) error
 }
-
-var (
-	wsConnMap = make(map[uint]*websocket.Conn) //后期可以用redis 存储
-	wsLock    sync.RWMutex                     //读写锁,读可以共享，写独占
-)
-
-// WsConnectionHandler
-// 管理用户map连接
-func (s *WebsocketService) WsConnectionHandler(connect *websocket.Conn, userId uint) {
-
-	//加入map在线表
-	wsLock.Lock()
-	wsConnMap[userId] = connect
-	_ = redis.SetUserOnline(userId, 1)
-	wsLock.Unlock()
-	fmt.Println("用户上线：", userId)
-	//清理资源,断开连接
-	defer func() {
-		//删除用户连接
-		wsLock.Lock()
-		delete(wsConnMap, userId)
-		_ = redis.SetUserOnline(userId, 0)
-		wsLock.Unlock()
-		_ = connect.Close()
-	}()
-	//为什么需要在for循环加go？因为for循环，读消息是阻塞任务，不能被阻塞,所以引入go进行异步并发
-	// 退出信号：任一协程断开，发送信号
-	exitChan := make(chan struct{})
-	go readLoop(connect, userId, exitChan)
-	//select阻塞，不让函数结束，因为函数退出，连接会关闭，不能为空select，会永久阻塞，连接不会断开
-	select {
-	case <-exitChan:
-		//收到退出信号，关闭连接，执行defer
-		return
-	}
+type WsClient struct {
+	Conn   *websocket.Conn
+	Send   chan []byte
+	UserId uint
 }
 
-// 读监听
-func readLoop(connect *websocket.Conn, userId uint, exitChan chan struct{}) {
+func (c *WsClient) writePump(exitFunc func()) {
 	defer func() {
-		close(exitChan)
+		if r := recover(); r != nil {
+			fmt.Printf("WritePump panic: %v\n", r)
+		}
+		exitFunc() //通知主协程
+		c.Conn.Close()
+	}()
+	for msg := range c.Send {
+		if err := c.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+			fmt.Printf("写入失败，关闭连接: %v\n", err)
+			break
+		}
+	}
+}
+func (c *WsClient) readPump(exitFunc func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("readLoop panic: %v\n", r)
+		}
+		exitFunc() //通知主协程
 	}()
 	for {
-		_, message, err := connect.ReadMessage()
+		_, message, err := c.Conn.ReadMessage()
 		if err != nil {
-			fmt.Printf("用户 %d 断开连接: %v\n", userId, err)
+			fmt.Printf("用户 %d 断开连接: %v\n", c.UserId, err)
 			break
 		}
 
 		// 可以处理心跳消息
 		msg := string(message)
 		if msg == "ping" || msg == "heartbeat" {
-			// 回复心跳
-			_ = connect.WriteMessage(websocket.TextMessage, []byte("pong"))
+			// 通过通道发送，由 WritePump 安全写出
+			select {
+			case c.Send <- []byte("pong"):
+			default:
+				fmt.Println("发送通道已满")
+			}
 		}
 
 	}
+}
+
+var (
+	wsConnMap = make(map[uint]*WsClient) //后期可以用redis 存储
+	wsLock    sync.RWMutex               //读写锁,读可以共享，写独占
+)
+
+// WsConnectionHandler
+// 管理用户map连接
+func (s *WebsocketService) WsConnectionHandler(connect *websocket.Conn, userId uint) {
+	client := &WsClient{
+		Conn:   connect,
+		Send:   make(chan []byte, 64),
+		UserId: userId,
+	}
+	//加入map在线表
+	wsLock.Lock()
+	wsConnMap[userId] = client
+	wsLock.Unlock()
+	fmt.Println("用户上线：", userId)
+	_ = redis.SetUserOnline(userId, 1)
+
+	exitChan := make(chan struct{})
+	var exitOnce sync.Once
+	exitFunc := func() { //只执行一次
+		exitOnce.Do(func() {
+			close(exitChan)
+		})
+	}
+	//启动读协程
+	go client.readPump(exitFunc)
+	//启动写协程
+	go client.writePump(exitFunc)
+
+	// 等待任一协程退出
+	<-exitChan
+	//清理资源,断开连接
+	defer func() {
+		//删除用户连接
+		wsLock.Lock()
+		delete(wsConnMap, userId)
+		wsLock.Unlock()
+		_ = redis.SetUserOnline(userId, 0)
+		close(client.Send)
+	}()
 }
 
 // SendWs  单向
@@ -119,16 +154,12 @@ func (s *WebsocketService) SendWs(msg *models.Message) error {
 	case "chat":
 		data, _ = json.Marshal(msg)
 	}
-
-	go func() {
-		if e := recover(); e != nil {
-			fmt.Println("发送ws错误", e)
-		}
-		err := ws.WriteMessage(1, data)
-		if err != nil {
-			fmt.Println("发送ws错误", err)
-		}
-	}()
+	select {
+	case ws.Send <- data:
+	default:
+		fmt.Println("发送通道已满")
+		return errors.New("发送通道已满")
+	}
 	return nil
 }
 
@@ -166,10 +197,13 @@ func (s *WebsocketService) SendWsGroup(msg *models.MessageVO) error {
 		if ws == nil {
 			continue
 		}
-		go func() {
-			data, _ := json.Marshal(msg)
-			_ = ws.WriteMessage(1, data)
-		}()
+		data, _ := json.Marshal(msg)
+		select {
+		case ws.Send <- data:
+		default:
+			fmt.Println("群消息丢弃")
+			continue
+		}
 
 	}
 	return nil
