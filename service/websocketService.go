@@ -31,8 +31,10 @@ type IMessageSender interface {
 }
 type WsClient struct {
 	Conn   *websocket.Conn
-	Send   chan []byte
+	Send   chan []byte //发送消息的信道
 	UserId uint
+	Closed chan struct{} //判断连接是否已经关闭的信道
+	Done   chan struct{} //由于写协程阻塞，所以用于读协程通知
 }
 
 func (c *WsClient) writePump(exitFunc func()) {
@@ -40,14 +42,25 @@ func (c *WsClient) writePump(exitFunc func()) {
 		if r := recover(); r != nil {
 			fmt.Printf("WritePump panic: %v\n", r)
 		}
+		close(c.Send)
+		close(c.Closed)
 		exitFunc() //通知主协程
-		c.Conn.Close()
+		_ = c.Conn.Close()
 	}()
-	for msg := range c.Send {
-		if err := c.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-			fmt.Printf("写入失败，关闭连接: %v\n", err)
-			break
+	for {
+		select {
+		case <-c.Done:
+			return
+		case msg, ok := <-c.Send:
+			if !ok {
+				return // Send 被关闭（自己关闭的，正常退出）
+			}
+			if err := c.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				fmt.Printf("写入失败，关闭连接: %v\n", err)
+				return
+			}
 		}
+
 	}
 }
 func (c *WsClient) readPump(exitFunc func()) {
@@ -55,7 +68,9 @@ func (c *WsClient) readPump(exitFunc func()) {
 		if r := recover(); r != nil {
 			fmt.Printf("readLoop panic: %v\n", r)
 		}
-		exitFunc() //通知主协程
+		close(c.Done) //通知写协程退出
+		exitFunc()    //通知主协程
+
 	}()
 	for {
 		_, message, err := c.Conn.ReadMessage()
@@ -90,6 +105,8 @@ func (s *WebsocketService) WsConnectionHandler(connect *websocket.Conn, userId u
 		Conn:   connect,
 		Send:   make(chan []byte, 64),
 		UserId: userId,
+		Closed: make(chan struct{}),
+		Done:   make(chan struct{}),
 	}
 	//加入map在线表
 	wsLock.Lock()
@@ -98,7 +115,7 @@ func (s *WebsocketService) WsConnectionHandler(connect *websocket.Conn, userId u
 	fmt.Println("用户上线：", userId)
 	_ = redis.SetUserOnline(userId, 1)
 
-	exitChan := make(chan struct{})
+	exitChan := make(chan struct{}) //主协程使用的退出信号
 	var exitOnce sync.Once
 	exitFunc := func() { //只执行一次
 		exitOnce.Do(func() {
@@ -113,14 +130,12 @@ func (s *WebsocketService) WsConnectionHandler(connect *websocket.Conn, userId u
 	// 等待任一协程退出
 	<-exitChan
 	//清理资源,断开连接
-	defer func() {
-		//删除用户连接
-		wsLock.Lock()
-		delete(wsConnMap, userId)
-		wsLock.Unlock()
-		_ = redis.SetUserOnline(userId, 0)
-		close(client.Send)
-	}()
+
+	//删除用户连接
+	wsLock.Lock()
+	delete(wsConnMap, userId)
+	wsLock.Unlock()
+	_ = redis.SetUserOnline(userId, 0)
 }
 
 // SendWs  单向
@@ -155,6 +170,8 @@ func (s *WebsocketService) SendWs(msg *models.Message) error {
 		data, _ = json.Marshal(msg)
 	}
 	select {
+	case <-ws.Closed:
+		return errors.New("用户已断开连接")
 	case ws.Send <- data:
 	default:
 		fmt.Println("发送通道已满")
@@ -199,6 +216,9 @@ func (s *WebsocketService) SendWsGroup(msg *models.MessageVO) error {
 		}
 		data, _ := json.Marshal(msg)
 		select {
+		case <-ws.Closed:
+			fmt.Println("发送用户已断开连接")
+			continue
 		case ws.Send <- data:
 		default:
 			fmt.Println("群消息丢弃")
