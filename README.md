@@ -1,3 +1,4 @@
+[English](./README.en.md) | 简体中文
 # GinChat 即时通讯系统（Go后端）
 基于 Go + Gin + WebSocket + MySQL + Redis+ Kafka 实现的高性能 IM 后端，支持高并发消息推送、在线状态管理、多级缓存优化与容器化部署。
 ### 联系我
