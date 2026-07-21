@@ -2,6 +2,7 @@ package service
 
 import (
 	"GinChat/mapper"
+	"GinChat/metrics"
 	"GinChat/models"
 	"GinChat/redis"
 	"errors"
@@ -56,9 +57,11 @@ func (c *WsClient) writePump(exitFunc func()) {
 				return // Send 被关闭（自己关闭的，正常退出）
 			}
 			if err := c.Conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				metrics.MsgSendFailTotal.Inc()
 				fmt.Printf("写入失败，关闭连接: %v\n", err)
 				return
 			}
+			metrics.MsgSendTotal.Inc()
 		}
 
 	}
@@ -113,6 +116,7 @@ func (s *WebsocketService) WsConnectionHandler(connect *websocket.Conn, userId u
 	wsConnMap[userId] = client
 	wsLock.Unlock()
 	fmt.Println("用户上线：", userId)
+	metrics.OnlineWSConn.Inc()
 	_ = redis.SetUserOnline(userId, 1)
 
 	exitChan := make(chan struct{}) //主协程使用的退出信号
@@ -135,6 +139,7 @@ func (s *WebsocketService) WsConnectionHandler(connect *websocket.Conn, userId u
 	wsLock.Lock()
 	delete(wsConnMap, userId)
 	wsLock.Unlock()
+	metrics.OnlineWSConn.Dec()
 	_ = redis.SetUserOnline(userId, 0)
 }
 

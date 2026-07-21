@@ -136,7 +136,6 @@ func (s *ChatService) HandleMsg(dto *MQ.MsgDTO) error {
 	}
 	switch message.Type {
 	case "chat":
-		fmt.Println("对方在线状态", dto.UserOnline)
 		if dto.UserOnline {
 			return s.messageSender.SendWs(message)
 		}

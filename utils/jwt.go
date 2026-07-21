@@ -16,7 +16,7 @@ type Claims struct {
 var jwtKey = []byte(viper.GetString("jwt.key"))
 
 func GenerateToken(id uint) (string, error) {
-	expireTime := time.Now().Add(time.Hour * 24) // 24小时token有效期
+	expireTime := time.Now().Add(time.Hour * 24 * 60) // 24小时token有效期,压测使用2个月
 
 	//配置
 	claims := Claims{

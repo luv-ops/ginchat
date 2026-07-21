@@ -181,3 +181,14 @@ func (s *GroupService) GroupMembers(groupId uint64, groupMemberReq *models.Group
 	}
 	return members, nil
 }
+
+func (s *GroupService) JoinGroup(groupId uint) error {
+	var groupMembers []models.GroupMember
+	for i := 7805; i <= 9804; i++ {
+		groupMembers = append(groupMembers, models.GroupMember{
+			GroupID: groupId,
+			UserID:  uint(i),
+		})
+	}
+	return s.groupMapper.JoinGroup(&groupMembers)
+}

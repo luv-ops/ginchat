@@ -19,6 +19,7 @@ type IGroupController interface {
 	InviteGroup(c *gin.Context)
 	GroupDetail(c *gin.Context)
 	GroupMembers(c *gin.Context)
+	TestJoin(c *gin.Context)
 }
 
 func NewGroupController(gS *service.GroupService) *GroupController {
@@ -141,4 +142,10 @@ func (con *GroupController) GroupMembers(c *gin.Context) {
 		return
 	}
 	utils.Ok(c, members)
+}
+
+func (con *GroupController) TestJoin(c *gin.Context) {
+	var groupId uint = 5
+	con.groupService.JoinGroup(groupId)
+
 }

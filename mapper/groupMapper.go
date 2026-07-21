@@ -106,3 +106,7 @@ func (m *GroupMapper) ExistsMemberIds(inviteIds *[]uint, groupId uint, existIds 
 	// **才是解引用
 	return m.db.Model(&models.GroupMember{}).Where(" user_id in ? and group_id = ?", *inviteIds, groupId).Pluck("user_id", existIds).Error
 }
+
+func (m *GroupMapper) JoinGroup(groupMembers *[]models.GroupMember) error {
+	return m.db.Create(groupMembers).Error
+}

@@ -3,6 +3,7 @@ package router
 import (
 	"GinChat/controller"
 	"GinChat/docs"
+	"GinChat/metrics"
 	"GinChat/middleware"
 	"GinChat/utils"
 
@@ -36,6 +37,11 @@ func NewRouter(uC controller.IUserController, chatC controller.IChatController,
 	}
 }
 func (R *Router) Setup(r *gin.Engine) {
+	// 全局HTTP耗时监控中间件
+	r.Use(metrics.HttpMetricMiddleware())
+
+	// 暴露Prometheus监控接口
+	r.GET("/metrics", gin.WrapH(metrics.MetricsHandler()))
 
 	r.Use(middleware.Cors())
 	r.GET("", func(c *gin.Context) {
@@ -110,6 +116,7 @@ func (R *Router) Setup(r *gin.Engine) {
 	//群组模块
 	groupGroup := r.Group("/group")
 	{
+		groupGroup.POST("/test/join", R.groupController.TestJoin)
 		groupGroup.Use(middleware.JwtAuth())
 		groupGroup.POST("/create", R.groupController.CreateGroup)
 		groupGroup.POST("/invite", R.groupController.InviteGroup)

@@ -26,7 +26,8 @@ func main() {
 	MQ.StartAllConsumers(ctx)
 	//依赖注入
 	route := Autowired.InitAll()
-	r := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
 	route.Setup(r)
 	r.Static("/static", "./static")
 	// 优雅退出处理
