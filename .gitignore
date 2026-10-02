@@ -1,0 +1,8 @@
+config/application.yaml
+test/
+markdown.md
+docker-compose.yml
+.idea
+GroupTokens.txt
+tokens.txt
+local/
