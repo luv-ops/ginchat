@@ -1,7 +1,7 @@
 config/application.yaml
 test/
 markdown.md
-docker-compose.yml
+docker-compose.yaml
 .idea
 GroupTokens.txt
 tokens.txt

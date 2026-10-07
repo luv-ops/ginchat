@@ -1,0 +1,1 @@
+var e=e=>new Date(e).toLocaleTimeString(`zh-CN`,{hour:`2-digit`,minute:`2-digit`,hour12:!1});export{e as t};

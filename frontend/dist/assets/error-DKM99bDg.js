@@ -1,0 +1,1 @@
+import{n as e}from"./request-xKfPSEzd.js";var{Axios:t,AxiosError:n,CanceledError:r,isCancel:i,CancelToken:a,VERSION:o,all:s,Cancel:c,isAxiosError:l,spread:u,toFormData:d,AxiosHeaders:f,HttpStatusCode:p,formToJSON:m,getAdapter:h,mergeConfig:g,create:_}=e,v=(e,t=`操作失败`)=>l(e)?e.response?.data?.message||e.message||t:e instanceof Error&&e.message||t;export{v as t};

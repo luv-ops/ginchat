@@ -41,5 +41,7 @@ func main() {
 		MQ.CloseKafka() // 释放 Kafka 资源
 		os.Exit(0)
 	}()
-	r.Run(":8080")
+	if err := r.Run(":8080"); err != nil {
+		log.Fatalf("启动失败: %v", err) // 端口占用等情况能看到明确报错
+	}
 }
